@@ -8,8 +8,16 @@ describe('apiFetch', () => {
     server.use(
       http.get('*/api/v1/boom', () =>
         HttpResponse.json(
-          { title: 'Bad Request', status: 400, detail: 'invalid flight', code: 'INVALID_FLIGHT' },
-          { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+          {
+            title: 'Bad Request',
+            status: 400,
+            detail: 'invalid flight',
+            code: 'INVALID_FLIGHT',
+          },
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/problem+json' },
+          },
         ),
       ),
     )
@@ -24,7 +32,12 @@ describe('apiFetch', () => {
   })
 
   it('falls back to status text when body is not JSON', async () => {
-    server.use(http.get('*/api/v1/boom', () => new HttpResponse('oops', { status: 502 })))
+    server.use(
+      http.get(
+        '*/api/v1/boom',
+        () => new HttpResponse('oops', { status: 502 }),
+      ),
+    )
     const err = await apiFetch('/boom').catch((e: unknown) => e)
     expect(err).toMatchObject({ status: 502 })
   })

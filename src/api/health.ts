@@ -9,5 +9,9 @@ export interface Health {
 export const getHealth = () => apiFetch<Health>('/health')
 
 export function useHealthQuery() {
-  return useQuery({ queryKey: queryKeys.health, queryFn: getHealth, retry: false })
+  return useQuery({
+    queryKey: queryKeys.health,
+    queryFn: getHealth,
+    retry: false,
+  })
 }

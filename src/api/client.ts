@@ -42,7 +42,10 @@ async function toApiError(res: Response): Promise<ApiError> {
   }
 }
 
-export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
   const { body, ownerToken, headers, ...init } = options
   const finalHeaders = new Headers(headers)
   finalHeaders.set('Accept', 'application/json')
