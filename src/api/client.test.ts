@@ -54,4 +54,16 @@ describe('apiFetch', () => {
     await apiFetch('/trips/1')
     expect(seen).toEqual(['secret', null])
   })
+
+  it('joins multiple owner tokens with commas', async () => {
+    let seen: string | null = null
+    server.use(
+      http.get('*/api/v1/trips', ({ request }) => {
+        seen = request.headers.get('X-Owner-Token')
+        return HttpResponse.json([])
+      }),
+    )
+    await apiFetch('/trips', { ownerToken: ['a', 'b'] })
+    expect(seen).toBe('a,b')
+  })
 })

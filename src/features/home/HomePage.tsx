@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { HealthStatus } from '@/components/HealthStatus'
 import { Button } from '@/components/ui/button'
 import { messages } from '@/constants/messages'
+import { TripList } from '@/features/trip-list/TripList'
 
 export function HomePage() {
   return (
@@ -11,6 +12,7 @@ export function HomePage() {
       <Button asChild>
         <Link to="/trips/new">{messages.home.newTrip}</Link>
       </Button>
+      <TripList />
     </main>
   )
 }

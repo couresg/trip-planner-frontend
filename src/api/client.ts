@@ -25,7 +25,8 @@ interface ProblemDetail {
 
 export interface ApiOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
-  ownerToken?: string
+  /** 여러 개면 콤마로 이어 보낸다 (GET /trips) */
+  ownerToken?: string | string[]
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
@@ -50,7 +51,8 @@ export async function apiFetch<T>(
   const finalHeaders = new Headers(headers)
   finalHeaders.set('Accept', 'application/json')
   if (body !== undefined) finalHeaders.set('Content-Type', 'application/json')
-  if (ownerToken) finalHeaders.set('X-Owner-Token', ownerToken)
+  const token = Array.isArray(ownerToken) ? ownerToken.join(',') : ownerToken
+  if (token) finalHeaders.set('X-Owner-Token', token)
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
