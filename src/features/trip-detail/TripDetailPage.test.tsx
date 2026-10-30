@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -64,6 +64,28 @@ describe('TripDetailPage', () => {
     expect(await screen.findByText('직접 입력')).toBeInTheDocument()
     expect(screen.getAllByText('항공편 조회')).toHaveLength(2)
     expect(screen.queryByText('예정')).not.toBeInTheDocument()
+  })
+
+  it('shows 도착일 / 일정 / 귀국일 tabs with 도착일 selected by default', async () => {
+    const tripId = await seedTrip()
+    const user = userEvent.setup()
+    renderRoute(`/trips/${tripId}`)
+    const tablist = await screen.findByRole('tablist', { name: '여행 상세 탭' })
+    expect(
+      within(tablist)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['도착일', '일정', '귀국일'])
+    expect(screen.getByRole('tab', { name: '도착일' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('radio', { name: '60분' })).toBeChecked()
+
+    await user.click(screen.getByRole('tab', { name: '일정' }))
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('준비 중입니다.')
+    await user.click(screen.getByRole('tab', { name: '귀국일' }))
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('준비 중입니다.')
   })
 
   it('deletes after confirmation and returns home', async () => {

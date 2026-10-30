@@ -12,7 +12,9 @@ import type { FlightSource } from '@/api/trips'
 import { useDeleteTrip, useTrip } from '@/api/trips'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { messages } from '@/constants/messages'
+import { ArrivalTab } from '@/features/transfer/ArrivalTab'
 import { formatLocal, isoOffsetZone } from '@/lib/time'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 
@@ -183,6 +185,23 @@ export function TripDetailPage() {
         source={t.return.source}
         status={t.return.status}
       />
+
+      <Tabs defaultValue="arrival">
+        <TabsList aria-label={m.tabs.label} className="w-full">
+          <TabsTrigger value="arrival">{m.tabs.arrival}</TabsTrigger>
+          <TabsTrigger value="itinerary">{m.tabs.itinerary}</TabsTrigger>
+          <TabsTrigger value="departure">{m.tabs.departure}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="arrival" className="pt-2">
+          <ArrivalTab tripId={tripId} areaName={t.area.nameKo} />
+        </TabsContent>
+        <TabsContent value="itinerary" className="pt-2">
+          <p className="text-sm text-muted-foreground">{m.comingSoon}</p>
+        </TabsContent>
+        <TabsContent value="departure" className="pt-2">
+          <p className="text-sm text-muted-foreground">{m.comingSoon}</p>
+        </TabsContent>
+      </Tabs>
 
       {confirming ? (
         <div className="flex flex-col gap-2 rounded-lg border border-red-200 p-3">

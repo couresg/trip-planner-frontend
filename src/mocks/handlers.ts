@@ -6,6 +6,12 @@ import {
   normalizeFlightNo,
 } from '@/api/flights'
 import type { FlightLeg, FlightPoint } from '@/api/flights'
+import { isOnDemandMode } from '@/api/transfers'
+import type {
+  ArrivalDeparture,
+  ArrivalOption,
+  ArrivalTransfers,
+} from '@/api/transfers'
 import type {
   CreateTripRequest,
   FlightSource,
@@ -277,6 +283,158 @@ const resolveFlight = (
   }
 }
 
+const MIN_MS = 60_000
+const DAY_MS = 86_400_000
+// 목업 공항(KIX)은 Asia/Tokyo 고정 +09:00 (서머타임 없음)
+const JST_OFFSET_MS = 9 * 60 * MIN_MS
+
+const toJstIso = (ms: number) =>
+  `${new Date(ms + JST_OFFSET_MS).toISOString().slice(0, 19)}+09:00`
+
+/** first~last(현지 자정 기준 분) 사이 step분 간격 */
+const everyMinutes = (first: number, last: number, step: number) => {
+  const times: number[] = []
+  for (let t = first; t <= last; t += step) times.push(t)
+  return times
+}
+
+interface SeedRoute extends Omit<
+  ArrivalOption,
+  'departures' | 'nextFirstDeparture' | 'is24h' | 'dataAsOf' | 'source'
+> {
+  /** 시간표 수단만. 현지 자정 기준 분 (시드는 평일·토요일·휴일 시각이 같다) */
+  timetable?: number[]
+}
+
+// V100__seed_catalog_osaka.sql 의 간사이공항 → 난바(area 11) 노선
+const arrivalRoutes: SeedRoute[] = [
+  {
+    routeId: 101,
+    mode: 'RAIL',
+    name: '난카이 라피트',
+    from: '간사이공항역',
+    to: '난바역',
+    durationMin: 38,
+    walkAfterMin: 5,
+    fare: { amount: 1490, currency: 'JPY', display: '¥1,490' },
+    boardingTip: '제1터미널 2층 연결통로 → 에어로플라자 → 난카이선 개찰구',
+    note: '추정: 시각표(매시 05·35분)와 요금은 공식 시간표로 검증 필요',
+    // TIMETABLE 06:35 ~ 23:05, 30분 간격
+    timetable: everyMinutes(395, 1385, 30),
+  },
+  {
+    routeId: 102,
+    mode: 'RAIL',
+    name: '난카이 공항급행',
+    from: '간사이공항역',
+    to: '난바역',
+    durationMin: 45,
+    walkAfterMin: 5,
+    fare: { amount: 970, currency: 'JPY', display: '¥970' },
+    boardingTip: '제1터미널 2층 연결통로 → 난카이선 개찰구',
+    note: '추정: 첫차·막차·배차간격·요금은 공식 시간표로 검증 필요',
+    // HEADWAY 05:45 ~ 23:35, 30분 간격
+    timetable: everyMinutes(345, 1415, 30),
+  },
+  {
+    routeId: 108,
+    mode: 'TAXI',
+    name: '택시',
+    from: '제1터미널 1층 택시 승강장',
+    to: '난바',
+    durationMin: 50,
+    walkAfterMin: 0,
+    fare: {
+      min: 17000,
+      max: 20000,
+      currency: 'JPY',
+      display: '¥17,000~20,000',
+    },
+    boardingTip: '제1터미널 1층 도착 로비 밖 택시 승강장',
+    note: '추정: 요금은 교통 상황·심야 할증에 따라 달라짐',
+  },
+]
+
+/** 서버 규칙을 흉내 낸다: 도착 ~ +2시간 출발편, 입국 완료 전은 HARD_TO_CATCH, 이후 첫 편 추천 */
+const arrivalTransfers = (
+  baseTime: string,
+  immigrationMin: number,
+): ArrivalTransfers => {
+  const base = Date.parse(baseTime)
+  const windowEnd = base + 120 * MIN_MS
+  const readyAt = base + immigrationMin * MIN_MS
+  const localMidnight =
+    Math.floor((base + JST_OFFSET_MS) / DAY_MS) * DAY_MS - JST_OFFSET_MS
+
+  const options: ArrivalOption[] = arrivalRoutes.map(
+    ({ timetable, ...route }) => {
+      const common = { dataAsOf: '2026-10-01', source: 'SEED' as const }
+      if (!timetable)
+        return {
+          ...route,
+          ...common,
+          is24h: true,
+          departures: [],
+          nextFirstDeparture: null,
+        }
+      const instants = [-1, 0, 1, 2]
+        .flatMap((day) =>
+          timetable.map((min) => localMidnight + day * DAY_MS + min * MIN_MS),
+        )
+        .sort((a, b) => a - b)
+      let recommendedGiven = false
+      const departures: ArrivalDeparture[] = instants
+        .filter((t) => t >= base && t <= windowEnd)
+        .map((t) => {
+          const status = t < readyAt ? 'HARD_TO_CATCH' : 'AVAILABLE'
+          const recommended = status === 'AVAILABLE' && !recommendedGiven
+          if (recommended) recommendedGiven = true
+          return {
+            departAt: toJstIso(t),
+            arriveAreaAt: toJstIso(
+              t + (route.durationMin + route.walkAfterMin) * MIN_MS,
+            ),
+            status,
+            recommended,
+          }
+        })
+      // 조회 범위에 탈 수 있는 편이 없으면 입국 완료 이후 첫 편을 알려 준다
+      const next = recommendedGiven
+        ? undefined
+        : instants.find((t) => t >= readyAt)
+      return {
+        ...route,
+        ...common,
+        is24h: false,
+        departures,
+        nextFirstDeparture: next === undefined ? null : toJstIso(next),
+      }
+    },
+  )
+
+  const recommendedArrival = (o: ArrivalOption) => {
+    const rec = o.departures.find((d) => d.recommended)
+    if (isOnDemandMode(o.mode)) return Number.MAX_SAFE_INTEGER
+    return rec ? Date.parse(rec.arriveAreaAt) : Number.MAX_SAFE_INTEGER - 1
+  }
+  const transit = options.filter((o) => !isOnDemandMode(o.mode))
+  return {
+    baseTime: toJstIso(base),
+    windowStart: toJstIso(base),
+    windowEnd: toJstIso(windowEnd),
+    readyAt: toJstIso(readyAt),
+    timezone: osaka.timezone,
+    // 탑승 어려움 편만 남은 노선도 운행 종료로 본다
+    noTransitWarning: transit.every(
+      (o) => !o.departures.some((d) => d.status === 'AVAILABLE'),
+    ),
+    // sort는 안정 정렬이라 추천편이 없는 노선은 원래 순서를 유지한다
+    options: [...options].sort(
+      (a, b) => recommendedArrival(a) - recommendedArrival(b),
+    ),
+  }
+}
+
 const tripHandlers = [
   http.post('*/api/v1/trips', async ({ request }) => {
     const body = (await request.json()) as CreateTripRequest
@@ -377,6 +535,26 @@ const tripHandlers = [
     const trip = findOwnedTrip(request, String(params.tripId))
     return trip instanceof Response ? trip : HttpResponse.json(trip.detail)
   }),
+  http.get(
+    '*/api/v1/trips/:tripId/transfers/arrival',
+    ({ request, params }) => {
+      const immigrationMin = Number(
+        new URL(request.url).searchParams.get('immigrationMin') ?? '60',
+      )
+      if (![30, 60, 90].includes(immigrationMin))
+        return problem(
+          400,
+          'Bad Request',
+          'immigrationMin must be 30, 60 or 90',
+          'VALIDATION_FAILED',
+        )
+      const trip = findOwnedTrip(request, String(params.tripId))
+      if (trip instanceof Response) return trip
+      return HttpResponse.json(
+        arrivalTransfers(trip.detail.outbound.arrivalAt, immigrationMin),
+      )
+    },
+  ),
   http.delete('*/api/v1/trips/:tripId', ({ request, params }) => {
     const trip = findOwnedTrip(request, String(params.tripId))
     if (trip instanceof Response) return trip

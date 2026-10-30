@@ -1,4 +1,5 @@
 import type { PlaceFilters } from './catalog'
+import type { ImmigrationMin } from './transfers'
 
 export const queryKeys = {
   health: ['health'] as const,
@@ -9,6 +10,16 @@ export const queryKeys = {
   trips: ['trips'] as const,
   tripList: (tripIds: string[]) => ['trips', 'list', tripIds] as const,
   trip: (tripId: string) => ['trips', 'detail', tripId] as const,
+  // trip(tripId) 하위 키라 여행 삭제 시 함께 지워진다
+  arrivalTransfers: (tripId: string, immigrationMin: ImmigrationMin) =>
+    [
+      'trips',
+      'detail',
+      tripId,
+      'transfers',
+      'arrival',
+      immigrationMin,
+    ] as const,
   places: (cityCode: string, filters: PlaceFilters) =>
     [
       'cities',
