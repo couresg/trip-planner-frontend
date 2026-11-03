@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { messages } from '@/constants/messages'
 import { ArrivalTab } from '@/features/transfer/ArrivalTab'
 import { DepartureTab } from '@/features/transfer/DepartureTab'
+import { ItineraryTab } from '@/features/itinerary/ItineraryTab'
 import { formatLocal, isoOffsetZone } from '@/lib/time'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 
@@ -24,7 +25,8 @@ const m = messages.tripDetail
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-4">
+    // 화면에 고정된 실패 안내가 떠 있는 동안 맨 아래 버튼까지 그 위로 스크롤할 수 있게 한다
+    <main className="mx-auto flex max-w-md flex-col gap-4 p-4 has-data-floating-banner:pb-48">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon-sm">
           <Link to="/" aria-label={m.home}>
@@ -198,7 +200,11 @@ export function TripDetailPage() {
           <ArrivalTab tripId={tripId} areaName={t.area.nameKo} />
         </TabsContent>
         <TabsContent value="itinerary" className="pt-2">
-          <p className="text-sm text-muted-foreground">{m.comingSoon}</p>
+          <ItineraryTab
+            tripId={tripId}
+            cityCode={t.city.code}
+            returnStatus={t.return.status}
+          />
         </TabsContent>
         <TabsContent value="departure" className="pt-2">
           <DepartureTab tripId={tripId} returnStatus={t.return.status} />

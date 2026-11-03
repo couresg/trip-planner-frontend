@@ -23,8 +23,16 @@ export interface Area {
   description: string | null
 }
 
-export type PlaceCategory =
-  'SIGHT' | 'FOOD' | 'SHOPPING' | 'NATURE' | 'NIGHT' | 'CULTURE'
+export const PLACE_CATEGORIES = [
+  'SIGHT',
+  'FOOD',
+  'SHOPPING',
+  'NATURE',
+  'NIGHT',
+  'CULTURE',
+] as const
+
+export type PlaceCategory = (typeof PLACE_CATEGORIES)[number]
 
 export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
 

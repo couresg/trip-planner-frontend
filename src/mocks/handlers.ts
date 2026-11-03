@@ -1,11 +1,16 @@
 import { http, HttpResponse } from 'msw'
-import type { Area, City, Place } from '@/api/catalog'
+import type { Area, City, DayOfWeek, Place } from '@/api/catalog'
 import {
   effectiveTime,
   isValidFlightNo,
   normalizeFlightNo,
 } from '@/api/flights'
 import type { FlightLeg, FlightPoint } from '@/api/flights'
+import type {
+  Itinerary,
+  ItineraryPlace,
+  ItineraryWarning,
+} from '@/api/itinerary'
 import { isOnDemandMode } from '@/api/transfers'
 import type {
   ArrivalDeparture,
@@ -235,7 +240,22 @@ interface StoredTrip {
 
 const trips = new Map<string, StoredTrip>()
 
-export const resetTrips = () => trips.clear()
+interface StoredItem {
+  itemId: number
+  date: string
+  plannedTime: string | null
+  memo: string
+  place: Place
+}
+
+/** 여행별 일정 항목. 배열 순서가 곧 날짜 안 순서다 */
+const itineraryItems = new Map<string, StoredItem[]>()
+let nextItemId = 9001
+
+export const resetTrips = () => {
+  trips.clear()
+  itineraryItems.clear()
+}
 
 const tokensOf = (request: Request) =>
   (request.headers.get('X-Owner-Token') ?? '')
@@ -638,7 +658,265 @@ const departureTransfers = (
   }
 }
 
+/** 서버 규칙을 흉내 낸다: 추천편 중 가장 빠른 숙소 도착, 없으면 입국 완료 + 택시, 택시도 없으면 입국 완료 */
+const earliestStartOf = (data: ArrivalTransfers) => {
+  const arrivals = data.options.flatMap((o) =>
+    o.departures
+      .filter((d) => d.recommended)
+      .map((d) => Date.parse(d.arriveAreaAt)),
+  )
+  if (arrivals.length > 0) return toJstIso(Math.min(...arrivals))
+  const taxi = data.options.find((o) => isOnDemandMode(o.mode))
+  const ready = Date.parse(data.readyAt)
+  return toJstIso(
+    taxi ? ready + (taxi.durationMin + taxi.walkAfterMin) * MIN_MS : ready,
+  )
+}
+
+/** 귀국일 강조 시각. 없으면 시간표 없는 수단 중 가장 이른 출발 마감, 착륙 후 시간이 없으면 null */
+const latestEndOf = (data: DepartureTransfers) => {
+  if (data.noTimeAfterLanding) return null
+  if (data.latestLeaveAt) return data.latestLeaveAt
+  const leaveBys = data.options.flatMap((o) =>
+    o.leaveByAt ? [Date.parse(o.leaveByAt)] : [],
+  )
+  return leaveBys.length > 0 ? toJstIso(Math.min(...leaveBys)) : null
+}
+
+const RETURN_MARGIN_MIN = 30
+
+const WEEKDAYS: DayOfWeek[] = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+const outsideOpeningHours = ({ date, plannedTime, place }: StoredItem) => {
+  if (!plannedTime || place.alwaysOpen || place.openingHours.length === 0)
+    return false
+  const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]
+  const hours = place.openingHours.find((h) => h.dayOfWeek === weekday)
+  const toMinutes = (time: string) =>
+    Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
+  return (
+    !hours ||
+    plannedTime < hours.open ||
+    toMinutes(plannedTime) + place.durationMin > toMinutes(hours.close)
+  )
+}
+
+/** 목업 시드에는 자정을 넘기는 영업시간이 없어 그 규칙은 생략한다 */
+const itemWarnings = (
+  item: StoredItem,
+  earliest: string,
+  latest: string | null,
+): ItineraryWarning[] => {
+  const { date, plannedTime, place } = item
+  const visit = plannedTime ? Date.parse(at(date, plannedTime)) : null
+  const warnings: ItineraryWarning[] = []
+  if (outsideOpeningHours(item)) warnings.push('OUTSIDE_OPENING_HOURS')
+  if (
+    visit === null ? date < earliest.slice(0, 10) : visit < Date.parse(earliest)
+  )
+    warnings.push('BEFORE_ARRIVAL')
+  if (
+    latest &&
+    (visit === null
+      ? date > latest.slice(0, 10)
+      : visit + (place.durationMin + RETURN_MARGIN_MIN) * MIN_MS >
+        Date.parse(latest))
+  )
+    warnings.push('AFTER_DEPARTURE_LEAVE_TIME')
+  return warnings
+}
+
+const tripDates = ({ detail }: StoredTrip) => {
+  const dates: string[] = []
+  for (let d = detail.startDate; d <= detail.endDate; d = addDays(d, 1))
+    dates.push(d)
+  return dates
+}
+
+const savedItem = (items: StoredItem[], item: StoredItem) => ({
+  itemId: item.itemId,
+  date: item.date,
+  position: items
+    .filter((i) => i.date === item.date)
+    .findIndex((i) => i.itemId === item.itemId),
+  plannedTime: item.plannedTime,
+  memo: item.memo,
+  place: toItineraryPlace(item.place),
+})
+
+const toItineraryPlace = ({
+  id,
+  nameKo,
+  category,
+  lat,
+  lng,
+  durationMin,
+}: Place): ItineraryPlace => ({ id, nameKo, category, lat, lng, durationMin })
+
+const itemNotFound = (itemId: string) =>
+  problem(
+    404,
+    'Not Found',
+    `Itinerary item not found: ${itemId}`,
+    'ITINERARY_ITEM_NOT_FOUND',
+  )
+
+const dateOutOfTrip = (date: string) =>
+  problem(400, 'Bad Request', `Date out of trip: ${date}`, 'DATE_OUT_OF_TRIP')
+
+const itineraryHandlers = [
+  http.get('*/api/v1/trips/:tripId/itinerary', ({ request, params }) => {
+    const search = new URL(request.url).searchParams
+    const immigrationMin = Number(search.get('immigrationMin') ?? '60')
+    const airportBufferMin = Number(search.get('airportBufferMin') ?? '120')
+    if (
+      ![30, 60, 90].includes(immigrationMin) ||
+      ![120, 150, 180].includes(airportBufferMin)
+    )
+      return problem(
+        400,
+        'Bad Request',
+        'Invalid transfer settings',
+        'VALIDATION_FAILED',
+      )
+    const tripId = String(params.tripId)
+    const trip = findOwnedTrip(request, tripId)
+    if (trip instanceof Response) return trip
+    const earliest = earliestStartOf(
+      arrivalTransfers(trip.detail.outbound.arrivalAt, immigrationMin),
+    )
+    const latest = latestEndOf(
+      departureTransfers(
+        trip.returnScheduledAt,
+        trip.detail.return.departureAt,
+        trip.detail.outbound.arrivalAt,
+        airportBufferMin,
+      ),
+    )
+    const stored = itineraryItems.get(tripId) ?? []
+    const itinerary: Itinerary = {
+      timezone: trip.detail.city.timezone,
+      returnMarginMin: RETURN_MARGIN_MIN,
+      days: tripDates(trip).map((date, index) => ({
+        date,
+        dayIndex: index + 1,
+        earliestStart: earliest.slice(0, 10) === date ? earliest : null,
+        latestEnd: latest?.slice(0, 10) === date ? latest : null,
+        items: stored
+          .filter((item) => item.date === date)
+          .map((item, position) => ({
+            itemId: item.itemId,
+            position,
+            plannedTime: item.plannedTime,
+            memo: item.memo,
+            place: toItineraryPlace(item.place),
+            warnings: itemWarnings(item, earliest, latest),
+          })),
+      })),
+    }
+    return HttpResponse.json(itinerary)
+  }),
+  http.post(
+    '*/api/v1/trips/:tripId/itinerary/items',
+    async ({ request, params }) => {
+      const tripId = String(params.tripId)
+      const trip = findOwnedTrip(request, tripId)
+      if (trip instanceof Response) return trip
+      const body = (await request.json()) as {
+        placeId: number
+        date: string
+        plannedTime: string | null
+        memo?: string
+      }
+      if (!tripDates(trip).includes(body.date)) return dateOutOfTrip(body.date)
+      const place = osakaPlaces.find((p) => p.id === body.placeId)
+      if (!place)
+        return problem(
+          404,
+          'Not Found',
+          `Place not found: ${body.placeId}`,
+          'PLACE_NOT_FOUND',
+        )
+      const item: StoredItem = {
+        itemId: nextItemId++,
+        date: body.date,
+        plannedTime: body.plannedTime,
+        memo: body.memo ?? '',
+        place,
+      }
+      const items = [...(itineraryItems.get(tripId) ?? []), item]
+      itineraryItems.set(tripId, items)
+      return HttpResponse.json(savedItem(items, item), { status: 201 })
+    },
+  ),
+  http.patch(
+    '*/api/v1/trips/:tripId/itinerary/items/:itemId',
+    async ({ request, params }) => {
+      const tripId = String(params.tripId)
+      const trip = findOwnedTrip(request, tripId)
+      if (trip instanceof Response) return trip
+      const items = itineraryItems.get(tripId) ?? []
+      const item = items.find((i) => i.itemId === Number(params.itemId))
+      if (!item) return itemNotFound(String(params.itemId))
+      const body = (await request.json()) as {
+        plannedTime: string | null
+        memo: string
+      }
+      item.plannedTime = body.plannedTime ?? null
+      item.memo = body.memo
+      return HttpResponse.json(savedItem(items, item))
+    },
+  ),
+  http.put(
+    '*/api/v1/trips/:tripId/itinerary/days/:date/order',
+    async ({ request, params }) => {
+      const tripId = String(params.tripId)
+      const trip = findOwnedTrip(request, tripId)
+      if (trip instanceof Response) return trip
+      const date = String(params.date)
+      if (!tripDates(trip).includes(date)) return dateOutOfTrip(date)
+      const { itemIds } = (await request.json()) as { itemIds: number[] }
+      if (new Set(itemIds).size !== itemIds.length || itemIds.length > 200)
+        return problem(
+          400,
+          'Bad Request',
+          'Invalid itemIds',
+          'VALIDATION_FAILED',
+        )
+      const items = itineraryItems.get(tripId) ?? []
+      const missing = itemIds.find((id) => !items.some((i) => i.itemId === id))
+      if (missing !== undefined) return itemNotFound(String(missing))
+      const listed = itemIds.map((id) => ({
+        ...(items.find((i) => i.itemId === id) as StoredItem),
+        date,
+      }))
+      itineraryItems.set(tripId, [
+        ...listed,
+        ...items.filter((i) => !itemIds.includes(i.itemId)),
+      ])
+      return new HttpResponse(null, { status: 204 })
+    },
+  ),
+  http.delete(
+    '*/api/v1/trips/:tripId/itinerary/items/:itemId',
+    ({ request, params }) => {
+      const tripId = String(params.tripId)
+      const trip = findOwnedTrip(request, tripId)
+      if (trip instanceof Response) return trip
+      const items = itineraryItems.get(tripId) ?? []
+      if (!items.some((i) => i.itemId === Number(params.itemId)))
+        return itemNotFound(String(params.itemId))
+      itineraryItems.set(
+        tripId,
+        items.filter((i) => i.itemId !== Number(params.itemId)),
+      )
+      return new HttpResponse(null, { status: 204 })
+    },
+  ),
+]
+
 const tripHandlers = [
+  ...itineraryHandlers,
   http.post('*/api/v1/trips', async ({ request }) => {
     const body = (await request.json()) as CreateTripRequest
     const outboundNo = normalizeFlightNo(body.outboundFlightNo ?? '')
@@ -788,6 +1066,7 @@ const tripHandlers = [
     const trip = findOwnedTrip(request, String(params.tripId))
     if (trip instanceof Response) return trip
     trips.delete(String(params.tripId))
+    itineraryItems.delete(String(params.tripId))
     return new HttpResponse(null, { status: 204 })
   }),
 ]

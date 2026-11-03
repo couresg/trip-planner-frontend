@@ -29,6 +29,22 @@ export const queryKeys = {
       'departure',
       airportBufferMin,
     ] as const,
+  itineraryMutations: (tripId: string) => ['itinerary', tripId] as const,
+  itineraryAll: (tripId: string) =>
+    ['trips', 'detail', tripId, 'itinerary'] as const,
+  itinerary: (
+    tripId: string,
+    immigrationMin: ImmigrationMin,
+    airportBufferMin: AirportBufferMin,
+  ) =>
+    [
+      'trips',
+      'detail',
+      tripId,
+      'itinerary',
+      immigrationMin,
+      airportBufferMin,
+    ] as const,
   places: (cityCode: string, filters: PlaceFilters) =>
     [
       'cities',

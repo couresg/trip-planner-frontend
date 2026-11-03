@@ -1,4 +1,4 @@
-import { OctagonAlert, TriangleAlert } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import {
   AIRPORT_BUFFER_OPTIONS,
@@ -11,6 +11,7 @@ import { isCanceledStatus } from '@/api/flights'
 import { messages } from '@/constants/messages'
 import { dayDiff, formatLocal } from '@/lib/time'
 import { useTransferSettings } from '@/stores/transferSettings'
+import { CanceledBanner } from './CanceledBanner'
 import { DepartureTransferCard } from './DepartureTransferCard'
 import { LocalTime } from './LocalTime'
 import { MinuteSelector } from './MinuteSelector'
@@ -181,15 +182,7 @@ export function DepartureTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {isCanceledStatus(returnStatus) && (
-        <div
-          role="alert"
-          className="flex gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800"
-        >
-          <OctagonAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <p>{m.canceled}</p>
-        </div>
-      )}
+      {isCanceledStatus(returnStatus) && <CanceledBanner />}
       <MinuteSelector
         name="airportBufferMin"
         legend={m.airportBuffer}

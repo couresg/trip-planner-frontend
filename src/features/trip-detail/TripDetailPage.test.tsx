@@ -98,7 +98,11 @@ describe('TripDetailPage', () => {
     expect(screen.getByRole('radio', { name: '60분' })).toBeChecked()
 
     await user.click(screen.getByRole('tab', { name: '일정' }))
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('준비 중입니다.')
+    expect(
+      await within(screen.getByRole('tabpanel')).findByRole('region', {
+        name: '추천 장소',
+      }),
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: '귀국일' }))
     expect(screen.getByRole('radio', { name: '2시간' })).toBeChecked()
   })
