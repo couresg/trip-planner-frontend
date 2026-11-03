@@ -8,8 +8,13 @@ import {
   TrainFront,
   TramFront,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useId } from 'react'
-import type { ArrivalOption, TransferMode } from '@/api/transfers'
+import type {
+  ArrivalOption,
+  TransferMode,
+  TransferRoute,
+} from '@/api/transfers'
 import { messages } from '@/constants/messages'
 import { DepartureChips } from './DepartureChips'
 import { LocalTime } from './LocalTime'
@@ -24,14 +29,15 @@ const modeIcon: Record<TransferMode, LucideIcon> = {
   RIDE_HAILING: Car,
 }
 
-export function TransferCard({
+/** 도착일·귀국일 공통 카드. 소요 문구와 시각 영역은 탭마다 다르다 */
+export function TransferCardFrame({
   option,
-  base,
-  tz,
+  durationText,
+  children,
 }: {
-  option: ArrivalOption
-  base: string
-  tz: string
+  option: TransferRoute
+  durationText: string
+  children: ReactNode
 }) {
   const titleId = useId()
   const Icon = modeIcon[option.mode]
@@ -64,8 +70,7 @@ export function TransferCard({
         </p>
       )}
       <p className="text-sm text-muted-foreground">
-        {m.duration(option.durationMin)}
-        {option.walkAfterMin > 0 && ` + ${m.walk(option.walkAfterMin)}`}
+        {durationText}
         {option.fare && (
           <>
             {' · '}
@@ -84,6 +89,33 @@ export function TransferCard({
           </span>
         </p>
       )}
+      {children}
+      {option.note && (
+        <p className="text-xs text-muted-foreground">{option.note}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {m.dataAsOf(option.dataAsOf)}
+      </p>
+    </article>
+  )
+}
+
+export function TransferCard({
+  option,
+  base,
+  tz,
+}: {
+  option: ArrivalOption
+  base: string
+  tz: string
+}) {
+  const walk =
+    option.walkAfterMin > 0 ? ` + ${m.walk(option.walkAfterMin)}` : ''
+  return (
+    <TransferCardFrame
+      option={option}
+      durationText={`${m.duration(option.durationMin)}${walk}`}
+    >
       {option.departures.length > 0 && (
         <DepartureChips departures={option.departures} base={base} tz={tz} />
       )}
@@ -99,12 +131,6 @@ export function TransferCard({
           <p className="text-sm text-muted-foreground">{m.noDepartures}</p>
         )
       )}
-      {option.note && (
-        <p className="text-xs text-muted-foreground">{option.note}</p>
-      )}
-      <p className="text-xs text-muted-foreground">
-        {m.dataAsOf(option.dataAsOf)}
-      </p>
-    </article>
+    </TransferCardFrame>
   )
 }

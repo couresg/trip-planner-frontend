@@ -66,6 +66,21 @@ describe('TripDetailPage', () => {
     expect(screen.queryByText('예정')).not.toBeInTheDocument()
   })
 
+  it('shows CanceledUncertain with the canceled badge style', async () => {
+    const tripId = await seedTrip()
+    const real = await getTrip(tripId, useOwnerTokens.getState().tokens[tripId])
+    server.use(
+      http.get('*/api/v1/trips/:tripId', () =>
+        HttpResponse.json({
+          ...real,
+          return: { ...real.return, status: 'CanceledUncertain' },
+        }),
+      ),
+    )
+    renderRoute(`/trips/${tripId}`)
+    expect(await screen.findByText('결항 가능성')).toHaveClass('bg-red-100')
+  })
+
   it('shows 도착일 / 일정 / 귀국일 tabs with 도착일 selected by default', async () => {
     const tripId = await seedTrip()
     const user = userEvent.setup()
@@ -85,7 +100,7 @@ describe('TripDetailPage', () => {
     await user.click(screen.getByRole('tab', { name: '일정' }))
     expect(screen.getByRole('tabpanel')).toHaveTextContent('준비 중입니다.')
     await user.click(screen.getByRole('tab', { name: '귀국일' }))
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('준비 중입니다.')
+    expect(screen.getByRole('radio', { name: '2시간' })).toBeChecked()
   })
 
   it('deletes after confirmation and returns home', async () => {

@@ -1,5 +1,5 @@
 import type { PlaceFilters } from './catalog'
-import type { ImmigrationMin } from './transfers'
+import type { AirportBufferMin, ImmigrationMin } from './transfers'
 
 export const queryKeys = {
   health: ['health'] as const,
@@ -19,6 +19,15 @@ export const queryKeys = {
       'transfers',
       'arrival',
       immigrationMin,
+    ] as const,
+  departureTransfers: (tripId: string, airportBufferMin: AirportBufferMin) =>
+    [
+      'trips',
+      'detail',
+      tripId,
+      'transfers',
+      'departure',
+      airportBufferMin,
     ] as const,
   places: (cityCode: string, filters: PlaceFilters) =>
     [

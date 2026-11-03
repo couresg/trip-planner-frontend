@@ -1,7 +1,7 @@
 import { messages } from '@/constants/messages'
 import { dayDiff, formatDayBadge, formatLocal } from '@/lib/time'
 
-/** 공항 현지 HH:mm. 기준 시각(착륙)의 현지 날짜와 다르면 +1 같은 배지를 붙인다 */
+/** 공항 현지 HH:mm. 기준 시각(도착일은 착륙, 귀국일은 항공편 출발)의 현지 날짜와 다르면 +1·-1 같은 배지를 붙인다 */
 export function LocalTime({
   iso,
   base,

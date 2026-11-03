@@ -2,7 +2,7 @@ import { CircleAlert, TriangleAlert } from 'lucide-react'
 import type { City } from '@/api/catalog'
 import { ApiError } from '@/api/client'
 import type { FlightLeg, FlightPoint } from '@/api/flights'
-import { effectiveTime, useFlightLookup } from '@/api/flights'
+import { effectiveTime, isCanceledStatus, useFlightLookup } from '@/api/flights'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
 import { dayDiff, formatDayBadge, formatLocal, isoOffsetZone } from '@/lib/time'
@@ -97,12 +97,14 @@ function LegRow({
   const arrAt = effectiveTime(leg.arrival)
   const arrTz = tzOf(leg.arrival)
   const badge = formatDayBadge(dayDiff(depAt, arrAt, arrTz))
-  const warning =
-    leg.status === 'Canceled'
-      ? m.canceled
-      : leg.status === 'Delayed'
-        ? m.delayed
-        : null
+  const canceled = isCanceledStatus(leg.status)
+  const warning = canceled
+    ? leg.status === 'CanceledUncertain'
+      ? m.canceledUncertain
+      : m.canceled
+    : leg.status === 'Delayed'
+      ? m.delayed
+      : null
 
   return (
     <div
@@ -126,7 +128,7 @@ function LegRow({
           <span
             className={cn(
               'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold',
-              leg.status === 'Canceled'
+              canceled
                 ? 'bg-red-100 text-red-700'
                 : 'bg-amber-100 text-amber-800',
             )}

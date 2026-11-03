@@ -11,6 +11,9 @@ import type {
   ArrivalDeparture,
   ArrivalOption,
   ArrivalTransfers,
+  DepartureOption,
+  DepartureTransfers,
+  ReturnDeparture,
 } from '@/api/transfers'
 import type {
   CreateTripRequest,
@@ -183,6 +186,30 @@ const flightsFor = (flightNo: string, date: string): FlightLeg[] | null => {
           status: 'Expected',
         },
       ]
+    case 'LJ232':
+      return [
+        {
+          departure: point('KIX', at(date, '10:00'), null, '1'),
+          arrival: point('ICN', at(date, '11:50'), null, '1'),
+          status: 'Canceled',
+        },
+      ]
+    case 'LJ233':
+      return [
+        {
+          departure: point('KIX', at(date, '10:00'), null, '1'),
+          arrival: point('ICN', at(date, '11:50'), null, '1'),
+          status: 'CanceledUncertain',
+        },
+      ]
+    case 'OZ113':
+      return [
+        {
+          departure: point('KIX', at(date, '15:00'), at(date, '16:30'), '1'),
+          arrival: point('ICN', at(date, '16:50'), at(date, '18:20'), '1'),
+          status: 'Delayed',
+        },
+      ]
     default:
       return null
   }
@@ -201,6 +228,8 @@ const providerDown = () =>
 
 interface StoredTrip {
   ownerToken: string
+  /** 여행 상세에는 지연 반영 시각만 있어 귀국일 계산용 원래 시각을 따로 둔다 */
+  returnScheduledAt: string
   detail: TripDetail
 }
 
@@ -242,6 +271,7 @@ const isCityAirport = (iata: string) =>
 type Resolved = {
   airport: string
   at: string
+  scheduled: string
   source: FlightSource
   status: string | null
 }
@@ -258,6 +288,7 @@ const resolveFlight = (
     return {
       airport: manualAirport,
       at: manualAt,
+      scheduled: manualAt,
       source: 'MANUAL',
       status: 'Manual',
     }
@@ -278,6 +309,7 @@ const resolveFlight = (
   return {
     airport: point(leg).iata,
     at: effectiveTime(point(leg)),
+    scheduled: point(leg).scheduled,
     source: 'AERODATABOX',
     status: leg.status,
   }
@@ -435,6 +467,177 @@ const arrivalTransfers = (
   }
 }
 
+const BOARDING_MARGIN_MIN = 10
+
+interface SeedReturnRoute extends Omit<
+  DepartureOption,
+  'departures' | 'leaveByAt' | 'is24h' | 'dataAsOf' | 'source'
+> {
+  /** 시간표 수단만. 현지 자정 기준 분 (목업은 요일 구분 없이 같은 시각을 쓴다) */
+  timetable?: number[]
+}
+
+// 난바(area 11) → 간사이공항 노선. 소요는 시드와 같고, 시각표는 실제 목록 대신 30분 간격으로 단순화했다
+const departureRoutes: SeedReturnRoute[] = [
+  {
+    routeId: 201,
+    mode: 'RAIL',
+    name: '난카이 라피트',
+    from: '난바역',
+    to: '간사이공항역',
+    durationMin: 38,
+    walkBeforeMin: 5,
+    fare: { amount: 1490, currency: 'JPY', display: '¥1,490' },
+    boardingTip: '난카이 난바역 3층 개찰구, 라피트 전용 승강장',
+    note: null,
+    // 06:00 ~ 22:00
+    timetable: everyMinutes(360, 1320, 30),
+  },
+  {
+    routeId: 202,
+    mode: 'RAIL',
+    name: '난카이 공항급행',
+    from: '난바역',
+    to: '간사이공항역',
+    durationMin: 45,
+    walkBeforeMin: 5,
+    fare: { amount: 970, currency: 'JPY', display: '¥970' },
+    boardingTip: '난카이 난바역 3층 개찰구',
+    note: null,
+    // 05:15 ~ 22:45
+    timetable: everyMinutes(315, 1365, 30),
+  },
+  {
+    routeId: 208,
+    mode: 'TAXI',
+    name: '택시',
+    from: '난바',
+    to: '간사이공항',
+    durationMin: 50,
+    walkBeforeMin: 0,
+    fare: {
+      min: 17000,
+      max: 20000,
+      currency: 'JPY',
+      display: '¥17,000~20,000',
+    },
+    boardingTip: '숙소 앞 또는 역 택시 승강장, 배차 앱 호출 가능',
+    note: '추정: 요금은 교통 상황·심야 할증에 따라 달라짐',
+  },
+]
+
+/**
+ * 서버 규칙을 흉내 낸다. 마감 = 출발 - 여유, 공항 도착이 [마감-90분, 마감]인 편 중 마지막이 LATEST, 그 앞이 SAFER.
+ * 숙소 출발 = 탑승 - 도보 - 탑승 여유. 지연이 있으면 줄어들 수 있으므로 더 이른 원래 시각을 기준으로 삼는다.
+ * 범위에 편이 없는 노선은 [마감-240분, 범위 시작) 도착 중 마지막 한 편만 outsideWindow로 돌려준다.
+ * 결과를 정하는 것은 오는 편 시각뿐이라 15:00(일반), 07:00(첫차 불가), 03:30(모두 범위 밖), 02:30(일부 범위 밖)으로 재현한다.
+ */
+const departureTransfers = (
+  scheduledAt: string,
+  effectiveAt: string,
+  landingAt: string,
+  airportBufferMin: number,
+): DepartureTransfers => {
+  // 착륙 전에 숙소에서 출발해야 하는 편과 택시는 탈 수 없다
+  const landing = Date.parse(landingAt)
+  const scheduled = Date.parse(scheduledAt)
+  const effective = Date.parse(effectiveAt)
+  const flight = Math.min(scheduled, effective)
+  const deadline = flight - airportBufferMin * MIN_MS
+  const windowStart = deadline - 90 * MIN_MS
+  const lookbackStart = deadline - 240 * MIN_MS
+  const localMidnight =
+    Math.floor((deadline + JST_OFFSET_MS) / DAY_MS) * DAY_MS - JST_OFFSET_MS
+
+  const options: DepartureOption[] = departureRoutes.map(
+    ({ timetable, ...route }) => {
+      const common = { dataAsOf: '2026-11-03', source: 'SEED' as const }
+      if (!timetable) {
+        const leaveBy = deadline - route.durationMin * MIN_MS
+        return {
+          ...route,
+          ...common,
+          is24h: true,
+          departures: [],
+          leaveByAt: leaveBy >= landing ? toJstIso(leaveBy) : null,
+        }
+      }
+      const arriveAt = (t: number) => t + route.durationMin * MIN_MS
+      const toDeparture = (
+        t: number,
+        label: ReturnDeparture['label'],
+        outsideWindow: boolean,
+      ): ReturnDeparture => ({
+        leaveAreaAt: toJstIso(
+          t - (route.walkBeforeMin + BOARDING_MARGIN_MIN) * MIN_MS,
+        ),
+        departAt: toJstIso(t),
+        arriveAirportAt: toJstIso(arriveAt(t)),
+        label,
+        outsideWindow,
+      })
+      const instants = [-1, 0]
+        .flatMap((day) =>
+          timetable.map((min) => localMidnight + day * DAY_MS + min * MIN_MS),
+        )
+        .sort((a, b) => a - b)
+        .filter(
+          (t) =>
+            t - (route.walkBeforeMin + BOARDING_MARGIN_MIN) * MIN_MS >= landing,
+        )
+      const inWindow = instants.filter(
+        (t) => arriveAt(t) >= windowStart && arriveAt(t) <= deadline,
+      )
+      const lookback = instants
+        .filter(
+          (t) => arriveAt(t) >= lookbackStart && arriveAt(t) < windowStart,
+        )
+        .slice(-1)
+      const departures =
+        inWindow.length > 0
+          ? inWindow.map((t, i) =>
+              toDeparture(
+                t,
+                i === inWindow.length - 1
+                  ? 'LATEST'
+                  : i === inWindow.length - 2
+                    ? 'SAFER'
+                    : null,
+                false,
+              ),
+            )
+          : lookback.map((t) => toDeparture(t, 'LATEST', true))
+      return { ...route, ...common, is24h: false, departures, leaveByAt: null }
+    },
+  )
+
+  const latestLeave = (o: DepartureOption) => {
+    const latest = o.departures.find((d) => d.label === 'LATEST')
+    return latest ? Date.parse(latest.leaveAreaAt) : null
+  }
+  const rank = (o: DepartureOption) =>
+    isOnDemandMode(o.mode) ? 2 : latestLeave(o) === null ? 1 : 0
+  const leaves = options.flatMap((o) => latestLeave(o) ?? [])
+  return {
+    flightDepartureAt: toJstIso(flight),
+    revisedDepartureAt: effective > scheduled ? toJstIso(effective) : null,
+    boardingMarginMin: BOARDING_MARGIN_MIN,
+    airportDeadline: toJstIso(deadline),
+    windowStart: toJstIso(windowStart),
+    timezone: osaka.timezone,
+    firstTrainTooLate: leaves.length === 0,
+    noTimeAfterLanding:
+      leaves.length === 0 && options.every((o) => o.leaveByAt === null),
+    latestLeaveAt: leaves.length > 0 ? toJstIso(Math.max(...leaves)) : null,
+    options: [...options].sort(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        (latestLeave(b) ?? 0) - (latestLeave(a) ?? 0) ||
+        a.routeId - b.routeId,
+    ),
+  }
+}
+
 const tripHandlers = [
   http.post('*/api/v1/trips', async ({ request }) => {
     const body = (await request.json()) as CreateTripRequest
@@ -482,6 +685,7 @@ const tripHandlers = [
     const ownerToken = crypto.randomUUID()
     trips.set(tripId, {
       ownerToken,
+      returnScheduledAt: ret.scheduled,
       detail: {
         tripId,
         city: {
@@ -552,6 +756,31 @@ const tripHandlers = [
       if (trip instanceof Response) return trip
       return HttpResponse.json(
         arrivalTransfers(trip.detail.outbound.arrivalAt, immigrationMin),
+      )
+    },
+  ),
+  http.get(
+    '*/api/v1/trips/:tripId/transfers/departure',
+    ({ request, params }) => {
+      const airportBufferMin = Number(
+        new URL(request.url).searchParams.get('airportBufferMin') ?? '120',
+      )
+      if (![120, 150, 180].includes(airportBufferMin))
+        return problem(
+          400,
+          'Bad Request',
+          'airportBufferMin must be 120, 150 or 180',
+          'VALIDATION_FAILED',
+        )
+      const trip = findOwnedTrip(request, String(params.tripId))
+      if (trip instanceof Response) return trip
+      return HttpResponse.json(
+        departureTransfers(
+          trip.returnScheduledAt,
+          trip.detail.return.departureAt,
+          trip.detail.outbound.arrivalAt,
+          airportBufferMin,
+        ),
       )
     },
   ),

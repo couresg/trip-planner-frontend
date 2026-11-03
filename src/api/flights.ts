@@ -35,6 +35,10 @@ export function normalizeFlightNo(input: string) {
 export const effectiveTime = (point: FlightPoint) =>
   point.revised ?? point.scheduled
 
+/** 항공 API의 Canceled, CanceledUncertain 등 결항 계열 상태 */
+export const isCanceledStatus = (status: string | null) =>
+  status?.startsWith('Cancel') ?? false
+
 export const lookupFlight = (flightNo: string, date: string) => {
   const params = new URLSearchParams({ flightNo, date })
   return apiFetch<FlightLookup>(`/flights/lookup?${params.toString()}`)

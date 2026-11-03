@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
+import { isCanceledStatus } from '@/api/flights'
 import type { FlightSource } from '@/api/trips'
 import { useDeleteTrip, useTrip } from '@/api/trips'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { messages } from '@/constants/messages'
 import { ArrivalTab } from '@/features/transfer/ArrivalTab'
+import { DepartureTab } from '@/features/transfer/DepartureTab'
 import { formatLocal, isoOffsetZone } from '@/lib/time'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 
@@ -71,7 +73,7 @@ function FlightRow({
         {status && !(status === 'Manual' && source === 'MANUAL') && (
           <span
             className={
-              status === 'Canceled'
+              isCanceledStatus(status)
                 ? 'rounded bg-red-100 px-1.5 py-0.5 text-red-700'
                 : status === 'Delayed'
                   ? 'rounded bg-amber-100 px-1.5 py-0.5 text-amber-800'
@@ -199,7 +201,7 @@ export function TripDetailPage() {
           <p className="text-sm text-muted-foreground">{m.comingSoon}</p>
         </TabsContent>
         <TabsContent value="departure" className="pt-2">
-          <p className="text-sm text-muted-foreground">{m.comingSoon}</p>
+          <DepartureTab tripId={tripId} returnStatus={t.return.status} />
         </TabsContent>
       </Tabs>
 

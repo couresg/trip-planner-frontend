@@ -52,6 +52,7 @@ export const messages = {
       error: '항공편 조회 중 문제가 발생했습니다.',
       matchedLeg: '여행 도시 구간',
       canceled: '결항',
+      canceledUncertain: '결항 가능성',
       delayed: '지연',
       scheduled: '예정',
       outboundMismatch: (city: string) =>
@@ -95,6 +96,7 @@ export const messages = {
       Expected: '예정',
       Delayed: '지연',
       Canceled: '결항',
+      CanceledUncertain: '결항 가능성',
       Manual: '직접 입력',
     } as Record<string, string>,
     noToken:
@@ -151,6 +153,53 @@ export const messages = {
       TAXI: '택시',
       RIDE_HAILING: '차량 호출',
     },
+  },
+  departure: {
+    airportBuffer: '공항 도착 여유 시간',
+    airportBufferHint: '항공편 출발 시각보다 얼마나 먼저 공항에 도착할지',
+    airportBufferOption: (min: number) =>
+      min % 60 === 0
+        ? `${min / 60}시간`
+        : `${Math.floor(min / 60)}시간 ${min % 60}분`,
+    summary: '귀국일 타임라인',
+    headlinePrefix: '늦어도',
+    headlineSuffix: '에 숙소에서 출발하세요',
+    /** 자정 직후 항공편은 숙소 출발이 항공편 전날이다 */
+    otherDay: (date: string) =>
+      `${date} 출발이에요. 항공편 출발일과 날짜가 달라요.`,
+    leaveArea: (name: string) => `숙소 출발 · ${name}`,
+    deadline: '공항 도착 마감',
+    flightDeparture: '항공편 출발',
+    leaveAt: '숙소 출발',
+    boardAt: '탑승',
+    arriveAirportAt: '공항 도착',
+    latest: '가장 늦은 출발',
+    safer: '여유 있게',
+    lastTrain: '막차',
+    leaveByPrefix: '늦어도',
+    leaveBySuffix: '출발',
+    canceled:
+      '결항 또는 결항 가능성이 있는 항공편으로 표시되어 있어요. 아래 시각은 참고용이니 항공사에 확인해 주세요.',
+    delayedAt: '항공편이 지연으로 표시되어 있어요. 변경된 출발 시각',
+    delayedDetail:
+      '지연은 줄어들 수 있어서 아래 시각은 원래 출발 시각을 기준으로 안내해요. 항공사에 확인해 주세요.',
+    flightDepartureOriginal: '항공편 원래 출발',
+    boardingMargin: (min: number) =>
+      `표 구매와 승강장 이동에 필요한 ${min}분을 포함한 시각이에요.`,
+    leaveByEstimate:
+      '소요 시간은 추정치이고 교통 상황에 따라 더 걸릴 수 있어요.',
+    notice:
+      '항공편 시각은 여행을 만들 때 저장한 값이에요. 연말연시 같은 특별 시간표 기간에는 실제 운행 시각이 다를 수 있어요. 출발 전에 항공사와 운영사에 다시 확인하세요.',
+    firstTrainTooLate: '첫차로는 시간을 맞출 수 없어요',
+    noTimeAfterLanding: '착륙 후 공항을 나갈 시간이 없어요',
+    noTimeAfterLandingDetail:
+      '이 일정으로는 숙소에 들렀다 돌아올 수 없어요. 가는 편과 오는 편 시각을 확인해 주세요.',
+    outsideWindow:
+      '마감 시각에 맞출 수 있는 막차예요. 공항에 일찍 도착해 오래 기다려야 해요.',
+    takeOnDemand: '택시·차량 호출을 이용하세요.',
+    considerOnDemand: '오래 기다리기 어렵다면 택시·차량 호출도 확인하세요.',
+    noOptions:
+      '이용할 수 있는 교통편이 없어요. 숙소나 항공사에 공항 가는 방법을 확인해 주세요.',
   },
   notFound: {
     title: '페이지를 찾을 수 없습니다',

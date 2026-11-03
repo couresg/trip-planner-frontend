@@ -149,6 +149,21 @@ describe('TripCreatePage', () => {
     expect(within(preview).getByText('여행 도시 구간')).toBeInTheDocument()
   })
 
+  it('shows a 결항 가능성 badge for CanceledUncertain', async () => {
+    const user = userEvent.setup()
+    renderRoute('/trips/new')
+    await user.selectOptions(await screen.findByLabelText('여행 도시'), 'OSA')
+    setDate(/시작일/, '2026-11-05')
+    await user.type(section('가는 편').getByLabelText('편명'), 'LJ233')
+    const preview = await screen.findByTestId(
+      'outbound-preview',
+      {},
+      { timeout: 2000 },
+    )
+    expect(within(preview).getByText('결항 가능성')).toHaveClass('bg-red-100')
+    expect(within(preview).queryByText('결항')).not.toBeInTheDocument()
+  })
+
   it('shows revised time and delay badge, and highlights the city leg of a connection', async () => {
     const user = userEvent.setup()
     renderRoute('/trips/new')

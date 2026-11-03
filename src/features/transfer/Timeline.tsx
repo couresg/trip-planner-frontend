@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ArrivalTransfers } from '@/api/transfers'
 import { messages } from '@/constants/messages'
 import { LocalTime } from './LocalTime'
@@ -17,6 +18,39 @@ function earliestRecommended(data: ArrivalTransfers) {
         Date.parse(a.departure.arriveAreaAt) -
         Date.parse(b.departure.arriveAreaAt),
     )[0]
+}
+
+export function TimelineSteps({
+  label,
+  steps,
+  base,
+  tz,
+  children,
+}: {
+  label: string
+  steps: { label: string; at: string }[]
+  base: string
+  tz: string
+  children?: ReactNode
+}) {
+  return (
+    <section aria-label={label} className="flex flex-col gap-2">
+      <ol className="flex flex-col border-l-2 border-primary/30 pl-4">
+        {steps.map((step) => (
+          <li
+            key={step.label}
+            className="relative flex items-baseline justify-between gap-2 py-1 before:absolute before:top-2.5 before:-left-[1.3rem] before:size-2.5 before:rounded-full before:bg-primary"
+          >
+            <span className="text-sm">{step.label}</span>
+            <span className="font-semibold">
+              <LocalTime iso={step.at} base={base} tz={tz} />
+            </span>
+          </li>
+        ))}
+      </ol>
+      {children}
+    </section>
+  )
 }
 
 export function Timeline({
@@ -44,27 +78,15 @@ export function Timeline({
       : []),
   ]
   return (
-    <section aria-label={m.timeline} className="flex flex-col gap-2">
-      <ol className="flex flex-col border-l-2 border-primary/30 pl-4">
-        {steps.map((step) => (
-          <li
-            key={step.label}
-            className="relative flex items-baseline justify-between gap-2 py-1 before:absolute before:top-2.5 before:-left-[1.3rem] before:size-2.5 before:rounded-full before:bg-primary"
-          >
-            <span className="text-sm">{step.label}</span>
-            <span className="font-semibold">
-              <LocalTime
-                iso={step.at}
-                base={data.baseTime}
-                tz={data.timezone}
-              />
-            </span>
-          </li>
-        ))}
-      </ol>
+    <TimelineSteps
+      label={m.timeline}
+      steps={steps}
+      base={data.baseTime}
+      tz={data.timezone}
+    >
       {!best && (
         <p className="text-sm text-muted-foreground">{m.noRecommendation}</p>
       )}
-    </section>
+    </TimelineSteps>
   )
 }

@@ -1,8 +1,6 @@
-import { CircleAlert, TriangleAlert } from 'lucide-react'
-import { isOnDemandMode, useArrivalTransfers } from '@/api/transfers'
+import { TriangleAlert } from 'lucide-react'
+import { onDemandFirst, useArrivalTransfers } from '@/api/transfers'
 import type { ArrivalTransfers } from '@/api/transfers'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
 import { cn } from '@/lib/utils'
 import { useTransferSettings } from '@/stores/transferSettings'
@@ -10,16 +8,12 @@ import { ImmigrationSelector } from './ImmigrationSelector'
 import { LocalTime } from './LocalTime'
 import { Timeline } from './Timeline'
 import { TransferCard } from './TransferCard'
+import { TransfersError, TransfersSkeleton } from './TransfersState'
 
 const m = messages.transfer
 
-/** 대중교통이 모두 끝났으면 택시·차량 호출을 먼저 보여준다 (서버는 맨 뒤에 둔다) */
 function orderedOptions(data: ArrivalTransfers) {
-  if (!data.noTransitWarning) return data.options
-  return [
-    ...data.options.filter((o) => isOnDemandMode(o.mode)),
-    ...data.options.filter((o) => !isOnDemandMode(o.mode)),
-  ]
+  return data.noTransitWarning ? onDemandFirst(data.options) : data.options
 }
 
 function earliestFirstDeparture(data: ArrivalTransfers) {
@@ -62,30 +56,13 @@ export function ArrivalTab({
   let body
   if (transfers.isError) {
     body = (
-      <div
-        role="alert"
-        className="flex flex-wrap items-center gap-2 text-sm text-red-600"
-      >
-        <CircleAlert className="size-4" aria-hidden />
-        <span>{messages.common.error}</span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={transfers.isFetching}
-          onClick={() => transfers.refetch()}
-        >
-          {messages.common.retry}
-        </Button>
-      </div>
+      <TransfersError
+        retrying={transfers.isFetching}
+        onRetry={() => transfers.refetch()}
+      />
     )
   } else if (transfers.isPending) {
-    body = (
-      <div className="flex flex-col gap-3" aria-label={messages.common.loading}>
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    )
+    body = <TransfersSkeleton />
   } else {
     const data = transfers.data
     body = (
