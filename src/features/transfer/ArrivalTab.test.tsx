@@ -210,6 +210,46 @@ describe('ArrivalTab', () => {
     )
   })
 
+  it('says transit data is missing, not that service ended, when only taxi comes back', async () => {
+    const tripId = await seedTrip('KE723', '2026-11-05')
+    server.use(
+      http.get('*/api/v1/trips/:tripId/transfers/arrival', () =>
+        HttpResponse.json({
+          baseTime: '2026-11-05T14:00:00+09:00',
+          windowStart: '2026-11-05T14:00:00+09:00',
+          windowEnd: '2026-11-05T16:00:00+09:00',
+          readyAt: '2026-11-05T15:00:00+09:00',
+          timezone: 'Asia/Tokyo',
+          noTransitWarning: true,
+          options: [
+            {
+              routeId: 900,
+              mode: 'TAXI',
+              name: '택시',
+              from: null,
+              to: null,
+              durationMin: 60,
+              fare: null,
+              boardingTip: null,
+              is24h: true,
+              dataAsOf: '2026-11-01',
+              source: 'SEED',
+              note: null,
+              walkAfterMin: 0,
+              departures: [],
+              nextFirstDeparture: null,
+            },
+          ],
+        }),
+      ),
+    )
+    renderRoute(`/trips/${tripId}`)
+
+    const banner = await screen.findByRole('status')
+    expect(banner).toHaveTextContent('확인된 대중교통 시각표가 아직 없어')
+    expect(banner).not.toHaveTextContent('운행하는 대중교통이 없습니다')
+  })
+
   it('shows an error with a retry button', async () => {
     const tripId = await seedTrip('KE723', '2026-11-05')
     server.use(

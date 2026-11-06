@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react'
-import { onDemandFirst, useArrivalTransfers } from '@/api/transfers'
+import { isOnDemandMode, onDemandFirst, useArrivalTransfers } from '@/api/transfers'
 import type { ArrivalTransfers } from '@/api/transfers'
 import { messages } from '@/constants/messages'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,8 @@ function earliestFirstDeparture(data: ArrivalTransfers) {
 
 function NoTransitBanner({ data }: { data: ArrivalTransfers }) {
   const first = earliestFirstDeparture(data)
+  // 시간표 노선이 응답에 아예 없으면 '운행 종료'가 아니라 데이터 부재다
+  const noTransitData = data.options.every((o) => isOnDemandMode(o.mode))
   return (
     <div
       role="status"
@@ -31,7 +33,7 @@ function NoTransitBanner({ data }: { data: ArrivalTransfers }) {
     >
       <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="flex flex-col gap-1">
-        <p>{m.noTransitWarning}</p>
+        <p>{noTransitData ? m.noTransitData : m.noTransitWarning}</p>
         {first && (
           <p className="font-semibold">
             {m.serviceEnded} · {m.firstDeparture}{' '}

@@ -218,6 +218,8 @@ export const messages = {
     noRecommendation: '입국 후 조회 시간 안에 탈 수 있는 대중교통이 없습니다.',
     noTransitWarning:
       '도착 후 2시간 안에 운행하는 대중교통이 없습니다. 택시·차량 호출을 이용하세요.',
+    noTransitData:
+      '이 구간은 확인된 대중교통 시각표가 아직 없어 택시만 표시합니다. 리무진버스·철도는 현지 안내를 확인해 주세요.',
     serviceEnded: '운행 종료',
     firstDeparture: '첫차',
     noDepartures: '조회 시간 안에 출발편이 없습니다.',
