@@ -253,7 +253,7 @@ export function ItineraryItemCard({
           <Button
             variant="outline"
             size="sm"
-            className="ml-auto h-9"
+            className="ml-auto"
             disabled={unsaved}
             aria-label={m.edit(name)}
             onClick={() => setEditing(true)}
@@ -264,7 +264,7 @@ export function ItineraryItemCard({
           {/* 375px에서 날짜 문구가 잘리지 않도록 한 줄을 다 쓴다 */}
           <select
             aria-label={m.moveToDate(name)}
-            className={cn(fieldClass, 'h-9 basis-full px-2')}
+            className={cn(fieldClass, 'h-10 basis-full px-2 md:h-9')}
             disabled={unsaved}
             value={date}
             onChange={(e) => onMoveToDate(item.itemId, e.target.value)}
