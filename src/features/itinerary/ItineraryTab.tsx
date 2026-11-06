@@ -45,6 +45,7 @@ export function ItineraryTab({
           <Button
             variant="ghost"
             size="icon-xs"
+            className="size-10 md:size-6"
             aria-label={m.dismiss}
             onClick={clearFailure}
           >
@@ -66,6 +67,7 @@ export function ItineraryTab({
       {/* 변경 뒤 다시 받기가 실패해도 보던 일정은 남긴다 */}
       {itinerary.isError && (
         <TransfersError
+          error={itinerary.error}
           retrying={itinerary.isFetching}
           onRetry={() => itinerary.refetch()}
         />

@@ -57,6 +57,7 @@ export function ArrivalTab({
   if (transfers.isError) {
     body = (
       <TransfersError
+        error={transfers.error}
         retrying={transfers.isFetching}
         onRetry={() => transfers.refetch()}
       />

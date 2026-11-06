@@ -1,6 +1,7 @@
 import { ChevronRight, CircleAlert, Plane } from 'lucide-react'
 import { Link } from 'react-router'
 import { useTrips } from '@/api/trips'
+import { isRateLimited } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
@@ -8,7 +9,7 @@ import { messages } from '@/constants/messages'
 const m = messages.tripList
 
 export function TripList() {
-  const { data, isPending, isError, isFetching, refetch } = useTrips()
+  const { data, error, isPending, isError, isFetching, refetch } = useTrips()
 
   return (
     <section className="flex flex-col gap-2" aria-labelledby="trip-list-title">
@@ -29,7 +30,9 @@ export function TripList() {
           className="flex flex-wrap items-center gap-2 text-sm text-red-600"
         >
           <CircleAlert className="size-4" aria-hidden />
-          <span>{m.error}</span>
+          <span>
+            {isRateLimited(error) ? messages.common.rateLimited : m.error}
+          </span>
           <Button
             size="sm"
             variant="outline"

@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { isCanceledStatus } from '@/api/flights'
+import { isRateLimited } from '@/api/queryClient'
 import type { FlightSource } from '@/api/trips'
 import { useDeleteTrip, useTrip } from '@/api/trips'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,9 @@ export function TripDetailPage() {
         : error instanceof ApiError && error.status === 404
           ? m.notFound
           : null
+    const text = isRateLimited(error)
+      ? messages.common.rateLimited
+      : (fatal ?? messages.common.error)
     return (
       <Shell>
         <div
@@ -116,7 +120,7 @@ export function TripDetailPage() {
           className="flex flex-wrap items-center gap-2 text-sm text-red-600"
         >
           <CircleAlert className="size-4" aria-hidden />
-          <span>{fatal ?? messages.common.error}</span>
+          <span>{text}</span>
           {!fatal && (
             <Button
               size="sm"

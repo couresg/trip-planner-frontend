@@ -3,6 +3,7 @@ import type { City } from '@/api/catalog'
 import { ApiError } from '@/api/client'
 import type { FlightLeg, FlightPoint } from '@/api/flights'
 import { effectiveTime, isCanceledStatus, useFlightLookup } from '@/api/flights'
+import { isRateLimited } from '@/api/queryClient'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
 import { dayDiff, formatDayBadge, formatLocal, isoOffsetZone } from '@/lib/time'
@@ -34,8 +35,10 @@ export function FlightPreview({
     return <Skeleton className="h-16 w-full" aria-label={m.loading} />
   }
   if (isError) {
-    const text =
-      error instanceof ApiError && error.code === 'FLIGHT_PROVIDER_UNAVAILABLE'
+    const text = isRateLimited(error)
+      ? messages.common.rateLimited
+      : error instanceof ApiError &&
+          error.code === 'FLIGHT_PROVIDER_UNAVAILABLE'
         ? m.unavailable
         : error instanceof ApiError && error.status === 404
           ? m.notFound

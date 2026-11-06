@@ -1,12 +1,15 @@
 import { CircleAlert } from 'lucide-react'
+import { isRateLimited } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
 
 export function TransfersError({
+  error,
   retrying,
   onRetry,
 }: {
+  error?: unknown
   retrying: boolean
   onRetry: () => void
 }) {
@@ -16,7 +19,11 @@ export function TransfersError({
       className="flex flex-wrap items-center gap-2 text-sm text-red-600"
     >
       <CircleAlert className="size-4" aria-hidden />
-      <span>{messages.common.error}</span>
+      <span>
+        {isRateLimited(error)
+          ? messages.common.rateLimited
+          : messages.common.error}
+      </span>
       <Button size="sm" variant="outline" disabled={retrying} onClick={onRetry}>
         {messages.common.retry}
       </Button>
