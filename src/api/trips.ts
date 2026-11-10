@@ -91,7 +91,11 @@ export function useCreateTrip() {
 /** 백엔드가 한 요청에서 받는 X-Owner-Token 최대 개수 */
 export const MAX_TOKENS_PER_REQUEST = 50
 
-/** 토큰을 50개씩 나눠 조회해 합친다. 모두 성공하면 결과에 없는 tripId의 토큰은 지운다(삭제·만료된 여행). */
+/**
+ * 토큰을 50개씩 나눠 조회해 합친다. 모두 성공하면 결과에 없는 tripId의 토큰은 지운다(삭제·만료된 여행).
+ * 단, 여행이 하나도 오지 않았으면 지우지 않는다. 서버에는 해시만 있어 지운 토큰은 되살릴 수 없는데,
+ * 전부 없는 것은 삭제가 아니라 다른 DB·환경에 연결된 경우일 수 있다.
+ */
 async function listOwnedTrips(tokens: Record<string, string>) {
   const tripIds = Object.keys(tokens)
   if (tripIds.length === 0) return []
@@ -105,7 +109,8 @@ async function listOwnedTrips(tokens: Record<string, string>) {
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
   const alive = new Set(trips.map((t) => t.tripId))
   const dead = tripIds.filter((id) => !alive.has(id))
-  if (dead.length > 0) useOwnerTokens.getState().removeTokens(dead)
+  if (alive.size > 0 && dead.length > 0)
+    useOwnerTokens.getState().removeTokens(dead)
   return trips
 }
 

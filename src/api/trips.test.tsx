@@ -81,6 +81,16 @@ describe('useTrips', () => {
     await waitFor(() => expect(result.current.data).toHaveLength(2))
   })
 
+  // 전부 없으면 삭제가 아니라 다른 DB·환경일 수 있다. 지운 토큰은 되살릴 수 없다
+  it('keeps every token when the response has no trips at all', async () => {
+    serveTrips(() => false)
+    storeTokens(3)
+    const { result } = renderHook(() => useTrips(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual([])
+    expect(Object.keys(useOwnerTokens.getState().tokens)).toHaveLength(3)
+  })
+
   it('never prunes on an error', async () => {
     server.use(
       http.get('*/api/v1/trips', () =>
