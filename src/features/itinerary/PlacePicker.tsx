@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { PLACE_CATEGORIES, usePlacesQuery } from '@/api/catalog'
 import type { Place, PlaceCategory } from '@/api/catalog'
 import type { ItineraryDay } from '@/api/itinerary'
-import { isRateLimited } from '@/api/queryClient'
+import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
@@ -46,7 +46,9 @@ export function PlacePicker({
       >
         <CircleAlert className="size-4" aria-hidden />
         <span>
-          {isRateLimited(places.error) ? messages.common.rateLimited : p.error}
+          {isRateLimited(places.error)
+            ? rateLimitedMessage(places.error)
+            : p.error}
         </span>
         <Button
           size="sm"

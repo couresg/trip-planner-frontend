@@ -11,7 +11,11 @@ import { server } from '@/mocks/server'
 import { renderRoute } from '@/test/renderRoute'
 import { createTrip } from './trips'
 import { apiFetch } from './client'
-import { createQueryClient, shouldRetry } from './queryClient'
+import {
+  createQueryClient,
+  rateLimitedMessage,
+  shouldRetry,
+} from './queryClient'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 
 const rateLimited = () =>
@@ -108,7 +112,7 @@ describe('429 message on screens', () => {
     server.use(http.get('*/api/v1/trips', rateLimited))
     renderRoute('/')
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+      '요청이 너무 많습니다. 30초 후 다시 시도해 주세요.',
     )
   })
 
@@ -117,6 +121,20 @@ describe('429 message on screens', () => {
     server.use(http.get('*/api/v1/trips/trip-x', rateLimited))
     renderRoute('/trips/trip-x')
     expect(await screen.findByRole('alert')).toHaveTextContent(
+      '요청이 너무 많습니다. 30초 후 다시 시도해 주세요.',
+    )
+  })
+})
+
+describe('rateLimitedMessage', () => {
+  it('falls back to the generic text without a usable Retry-After', async () => {
+    server.use(
+      http.get('*/api/v1/ping', () =>
+        HttpResponse.json({ status: 429 }, { status: 429 }),
+      ),
+    )
+    const error = await apiFetch('/ping').catch((e: unknown) => e)
+    expect(rateLimitedMessage(error)).toBe(
       '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
     )
   })

@@ -4,7 +4,7 @@ import { PLACE_CATEGORIES } from '@/api/catalog'
 import type { Place, PlaceCategory } from '@/api/catalog'
 import { ApiError } from '@/api/client'
 import type { ItineraryDay } from '@/api/itinerary'
-import { isRateLimited } from '@/api/queryClient'
+import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import { PACES, usePlaceRecommendations } from '@/api/recommendations'
 import type { Pace, RecommendationRequest } from '@/api/recommendations'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ const PLACES_PER_DAY: Record<Pace, number> = {
 }
 
 function errorMessage(error: unknown) {
-  if (isRateLimited(error)) return messages.common.rateLimited
+  if (isRateLimited(error)) return rateLimitedMessage(error)
   if (error instanceof ApiError && error.code === 'RECOMMENDATION_UNAVAILABLE')
     return r.unavailable
   return r.error

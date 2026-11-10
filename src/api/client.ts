@@ -5,14 +5,23 @@ export class ApiError extends Error {
   readonly title: string
   readonly detail?: string
   readonly code?: string
+  /** 429의 Retry-After 헤더(초). 없거나 숫자가 아니면 undefined */
+  readonly retryAfterSec?: number
 
-  constructor(status: number, title: string, detail?: string, code?: string) {
+  constructor(
+    status: number,
+    title: string,
+    detail?: string,
+    code?: string,
+    retryAfterSec?: number,
+  ) {
     super(detail ?? title)
     this.name = 'ApiError'
     this.status = status
     this.title = title
     this.detail = detail
     this.code = code
+    this.retryAfterSec = retryAfterSec
   }
 }
 
@@ -30,6 +39,9 @@ export interface ApiOptions extends Omit<RequestInit, 'body'> {
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
+  const seconds = Number(res.headers.get('Retry-After'))
+  const retryAfterSec =
+    Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : undefined
   try {
     const problem = (await res.json()) as ProblemDetail
     return new ApiError(
@@ -37,9 +49,16 @@ async function toApiError(res: Response): Promise<ApiError> {
       problem.title ?? res.statusText,
       problem.detail,
       problem.code,
+      retryAfterSec,
     )
   } catch {
-    return new ApiError(res.status, res.statusText)
+    return new ApiError(
+      res.status,
+      res.statusText,
+      undefined,
+      undefined,
+      retryAfterSec,
+    )
   }
 }
 

@@ -18,10 +18,12 @@ const m = messages.itinerary
 export function ItineraryTab({
   tripId,
   cityCode,
+  outboundStatus,
   returnStatus,
 }: {
   tripId: string
   cityCode: string
+  outboundStatus: string | null
   returnStatus: string | null
 }) {
   const immigrationMin = useTransferSettings((s) => s.immigrationMin)
@@ -32,7 +34,9 @@ export function ItineraryTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {isCanceledStatus(returnStatus) && <CanceledBanner />}
+      {(isCanceledStatus(outboundStatus) || isCanceledStatus(returnStatus)) && (
+        <CanceledBanner />
+      )}
       {/* 긴 일정 아래쪽에서 실패해도 보이게 화면에 고정한다. 흐름에서 빠지므로 빈자리도, 나타날 때 내용이 밀리는 일도 없다 */}
       {failure && (
         <div

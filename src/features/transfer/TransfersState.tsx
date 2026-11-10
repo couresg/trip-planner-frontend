@@ -1,6 +1,6 @@
 import { CircleAlert } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { isRateLimited } from '@/api/queryClient'
+import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
@@ -29,7 +29,7 @@ export function TransfersError({
       <CircleAlert className="size-4" aria-hidden />
       <span>
         {isRateLimited(error)
-          ? messages.common.rateLimited
+          ? rateLimitedMessage(error)
           : (fatal ?? messages.common.error)}
       </span>
       {!fatal && (

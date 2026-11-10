@@ -1,7 +1,7 @@
 import { ChevronRight, CircleAlert, Plane } from 'lucide-react'
 import { Link } from 'react-router'
 import { useTrips } from '@/api/trips'
-import { isRateLimited } from '@/api/queryClient'
+import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
@@ -31,7 +31,7 @@ export function TripList() {
         >
           <CircleAlert className="size-4" aria-hidden />
           <span>
-            {isRateLimited(error) ? messages.common.rateLimited : m.error}
+            {isRateLimited(error) ? rateLimitedMessage(error) : m.error}
           </span>
           <Button
             size="sm"

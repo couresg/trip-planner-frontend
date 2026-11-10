@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { isCanceledStatus } from '@/api/flights'
-import { isRateLimited } from '@/api/queryClient'
+import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import type { FlightSource } from '@/api/trips'
 import { useDeleteTrip, useTrip } from '@/api/trips'
 import { Button } from '@/components/ui/button'
@@ -111,7 +111,7 @@ export function TripDetailPage() {
           ? m.notFound
           : null
     const text = isRateLimited(error)
-      ? messages.common.rateLimited
+      ? rateLimitedMessage(error)
       : (fatal ?? messages.common.error)
     return (
       <Shell>
@@ -207,6 +207,7 @@ export function TripDetailPage() {
           <ItineraryTab
             tripId={tripId}
             cityCode={t.city.code}
+            outboundStatus={t.outbound.status}
             returnStatus={t.return.status}
           />
         </TabsContent>

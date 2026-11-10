@@ -343,6 +343,8 @@ export const messages = {
     retry: '다시 시도',
     error: '문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
     rateLimited: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+    rateLimitedIn: (seconds: number) =>
+      `요청이 너무 많습니다. ${seconds}초 후 다시 시도해 주세요.`,
     loading: '불러오는 중...',
   },
 } as const
