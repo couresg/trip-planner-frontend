@@ -1,4 +1,5 @@
 import { CircleAlert } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { isRateLimited } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,6 +14,13 @@ export function TransfersError({
   retrying: boolean
   onRetry: () => void
 }) {
+  // 여행이 삭제됐거나 권한이 없으면 다시 시도해도 성공할 수 없다
+  const fatal =
+    error instanceof ApiError && error.status === 403
+      ? messages.tripDetail.forbidden
+      : error instanceof ApiError && error.status === 404
+        ? messages.tripDetail.notFound
+        : null
   return (
     <div
       role="alert"
@@ -22,11 +30,18 @@ export function TransfersError({
       <span>
         {isRateLimited(error)
           ? messages.common.rateLimited
-          : messages.common.error}
+          : (fatal ?? messages.common.error)}
       </span>
-      <Button size="sm" variant="outline" disabled={retrying} onClick={onRetry}>
-        {messages.common.retry}
-      </Button>
+      {!fatal && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={retrying}
+          onClick={onRetry}
+        >
+          {messages.common.retry}
+        </Button>
+      )}
     </div>
   )
 }
