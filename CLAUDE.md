@@ -28,7 +28,7 @@ npm run test       # Vitest
 | 라우팅 | **React Router** | `/`, `/trips/new`, `/trips/:tripId` 정도의 단순 라우팅 |
 | 서버 상태 | **TanStack Query** | API 캐시, 로딩/에러 상태, 일정 변경 시 낙관적 업데이트 |
 | 클라이언트 상태 | **Zustand** | 입국 소요 시간 같은 UI 설정, 소유 토큰 등 가벼운 전역 상태 |
-| UI | **Tailwind CSS + shadcn/ui** | 날짜 범위 선택(Calendar), Select, Tabs, Dialog, Toast를 바로 사용 |
+| UI | **Tailwind CSS + shadcn/ui** | Button, Tabs, Skeleton을 사용. 날짜·선택 입력은 모바일 기본 UI를 쓰려고 네이티브 `<input type="date">`·`<select>`를 쓴다 |
 | 폼 | **react-hook-form + zod** | 편명 정규식·날짜 범위 검증을 스키마로 선언 |
 | 날짜·시간대 | **date-fns + date-fns-tz** | 공항 현지 시각 표시, `+1` 날짜 넘김 계산 |
 | 드래그 앤 드롭 | **dnd-kit** | 일정 순서 변경·날짜 간 이동, 모바일 터치 지원 |
@@ -62,7 +62,7 @@ src/
 - 서버 데이터는 TanStack Query로만 다룬다 (Zustand에 서버 데이터 복사 금지). Query key는 `api/queryKeys.ts`에 모은다.
 - API 호출은 `api/` 함수만 통한다. 컴포넌트에서 `fetch` 직접 호출 금지.
 - 모든 여행 API 요청에 `X-Owner-Token` 헤더를 붙이는 로직은 `api/client.ts` 한 곳에서 처리한다.
-- **시간 표시**: 서버가 준 ISO 오프셋 시각을 그대로 공항/도시 timezone으로 포맷한다. 브라우저 로컬 시간대로 변환하지 않는다. `lib/time.ts`의 `formatLocal(iso, tz)`, `dayDiff(base, target, tz)`만 사용한다.
+- **시간 표시**: 서버가 준 ISO 오프셋 시각을 그대로 공항/도시 timezone으로 포맷한다. 브라우저 로컬 시간대로 변환하지 않는다. `lib/time.ts`의 함수만 사용한다 (`formatLocal(iso, tz)`, `dayDiff(base, target, tz)`, `isoOffsetZone`, `zonedInputToIso`, `formatDayBadge`). 테스트는 `America/Los_Angeles`로 고정해 돌린다(`vite.config.ts`).
 - 폼 검증 스키마(zod)의 편명 정규식은 백엔드와 동일하게 `^[A-Z0-9]{2}\d{1,4}$` (입력 시 대문자·공백 제거 정규화).
 - localStorage 접근은 `lib/storage.ts`를 통해 try/catch로 감싼다.
 - 문구는 컴포넌트에 흩뿌리지 말고 `constants/messages.ts`에 모은다 (추후 다국어 대비).
