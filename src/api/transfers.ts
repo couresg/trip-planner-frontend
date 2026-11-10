@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 import { apiFetch } from './client'
 import { queryKeys } from './queryKeys'
+import { refreshTripDetail } from './trips'
 
 export const IMMIGRATION_OPTIONS = [30, 60, 90] as const
 export type ImmigrationMin = (typeof IMMIGRATION_OPTIONS)[number]
@@ -144,15 +145,21 @@ export function useDepartureTransfers(
   tripId: string | undefined,
   airportBufferMin: AirportBufferMin,
 ) {
+  const queryClient = useQueryClient()
   const token = useOwnerTokens((s) => (tripId ? s.tokens[tripId] : undefined))
   return useQuery({
     queryKey: queryKeys.departureTransfers(tripId ?? '', airportBufferMin),
-    queryFn: () =>
-      getDepartureTransfers(
+    queryFn: async () => {
+      const data = await getDepartureTransfers(
         tripId as string,
         airportBufferMin,
         token as string,
-      ),
+      )
+      // 응답을 받은 뒤 한 번만. 재조회가 저장된 값을 바꿨을 수 있다
+      if (data.flightCheck.result === 'REFRESHED')
+        void refreshTripDetail(queryClient, tripId as string)
+      return data
+    },
     enabled: !!tripId && !!token,
     // 이전 여유 시간의 "늦어도" 시각이 읽히면 안 되므로 placeholderData를 쓰지 않는다
     retry: false,
@@ -175,11 +182,20 @@ export function useArrivalTransfers(
   tripId: string | undefined,
   immigrationMin: ImmigrationMin,
 ) {
+  const queryClient = useQueryClient()
   const token = useOwnerTokens((s) => (tripId ? s.tokens[tripId] : undefined))
   return useQuery({
     queryKey: queryKeys.arrivalTransfers(tripId ?? '', immigrationMin),
-    queryFn: () =>
-      getArrivalTransfers(tripId as string, immigrationMin, token as string),
+    queryFn: async () => {
+      const data = await getArrivalTransfers(
+        tripId as string,
+        immigrationMin,
+        token as string,
+      )
+      if (data.flightCheck.result === 'REFRESHED')
+        void refreshTripDetail(queryClient, tripId as string)
+      return data
+    },
     enabled: !!tripId && !!token,
     // 입국 소요 시간을 바꿔도 이전 결과를 보여 스켈레톤이 깜빡이지 않게 한다. 다른 여행의 결과는 쓰지 않는다
     placeholderData: (previous, previousQuery) =>

@@ -1,7 +1,6 @@
 import { CircleAlert, X } from 'lucide-react'
 import { isCanceledStatus } from '@/api/flights'
 import { useItinerary } from '@/api/itinerary'
-import { useRefreshTripDetail } from '@/api/trips'
 import { Button } from '@/components/ui/button'
 import { messages } from '@/constants/messages'
 import { CanceledBanner } from '@/features/transfer/CanceledBanner'
@@ -28,8 +27,6 @@ export function ItineraryTab({
   const immigrationMin = useTransferSettings((s) => s.immigrationMin)
   const airportBufferMin = useTransferSettings((s) => s.airportBufferMin)
   const itinerary = useItinerary(tripId, immigrationMin, airportBufferMin)
-  // 일정 GET도 두 편을 재조회한다. 결과 필드가 없어 받을 때마다 여행 상세(결항 status)를 다시 받는다
-  useRefreshTripDetail(tripId, itinerary.isSuccess, itinerary.dataUpdatedAt)
   const { add, remove, reorder, failure, clearFailure } =
     useItineraryMutations(tripId)
 

@@ -86,6 +86,7 @@ describe('ItineraryTab', () => {
     })
     useOwnerTokens.getState().setToken(tripId, ownerToken)
     const saved = await getTrip(tripId, ownerToken)
+    let itineraryReads = 0
     let reads = 0
     // 처음 받은 여행 상세는 Expected, 일정 GET이 재조회한 뒤에는 결항이다
     server.use(
@@ -98,6 +99,11 @@ describe('ItineraryTab', () => {
         )
       }),
     )
+    server.use(
+      http.get(ITINERARY_PATH, () => {
+        itineraryReads += 1
+      }),
+    )
     const user = userEvent.setup()
     renderRoute(`/trips/${tripId}`)
     await user.click(await screen.findByRole('tab', { name: '일정' }))
@@ -106,6 +112,11 @@ describe('ItineraryTab', () => {
       '결항 또는 결항 가능성',
     )
     expect(reads).toBeGreaterThanOrEqual(2)
+    // 여행 상세 무효화가 일정을 다시 받게 하면(앞부분 일치) 요청이 계속 늘어난다
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(itineraryReads).toBe(1)
+    // 처음 + 도착일 탭(기본 탭) 재조회 뒤 + 일정 재조회 뒤 한 번씩
+    expect(reads).toBe(3)
   })
 
   it('renders every trip date, including empty days', async () => {

@@ -3,6 +3,7 @@ import { useOwnerTokens } from '@/stores/ownerTokens'
 import type { PlaceCategory } from './catalog'
 import { apiFetch } from './client'
 import { queryKeys } from './queryKeys'
+import { refreshTripDetail } from './trips'
 import type { AirportBufferMin, ImmigrationMin } from './transfers'
 
 export type ItineraryWarning =
@@ -132,8 +133,17 @@ export function useItinerary(
     }) === 0
   return useQuery({
     queryKey: queryKeys.itinerary(tripId, immigrationMin, airportBufferMin),
-    queryFn: () =>
-      getItinerary(tripId, immigrationMin, airportBufferMin, token),
+    queryFn: async () => {
+      const data = await getItinerary(
+        tripId,
+        immigrationMin,
+        airportBufferMin,
+        token,
+      )
+      // 일정 GET도 두 편을 재조회한다. 결과 필드가 없어 받을 때마다 여행 상세(결항 status)를 다시 받는다
+      void refreshTripDetail(queryClient, tripId)
+      return data
+    },
     enabled: !!token,
     // 데이터가 없는 첫 로드는 이 옵션과 무관하게 항상 받는다
     refetchOnMount: noMutationInFlight,

@@ -266,6 +266,7 @@ describe('ArrivalTab', () => {
     const tripId = await seedTrip('KE723', '2026-11-05')
     const token = useOwnerTokens.getState().tokens[tripId]
     const saved = await getTrip(tripId, token)
+    let arrivalReads = 0
     let reads = 0
     server.use(
       http.get('*/api/v1/trips/:tripId', () => {
@@ -283,10 +284,20 @@ describe('ArrivalTab', () => {
         )
       }),
     )
+    server.use(
+      // 응답하지 않으면 기본 핸들러로 넘어간다. 요청 수만 센다
+      http.get('*/api/v1/trips/:tripId/transfers/arrival', () => {
+        arrivalReads += 1
+      }),
+    )
     renderRoute(`/trips/${tripId}`)
 
     await waitFor(() => expect(reads).toBe(2))
     await waitFor(() => expect(document.body).toHaveTextContent('13:58'))
+    // 여행 상세 무효화가 교통편을 다시 받게 하면(앞부분 일치) 요청이 계속 늘어난다
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(arrivalReads).toBe(1)
+    expect(reads).toBe(2)
   })
 
   it('says a manual flight is not re-checked and shows no delay', async () => {

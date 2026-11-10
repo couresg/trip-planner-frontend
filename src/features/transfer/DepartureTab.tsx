@@ -8,7 +8,6 @@ import {
 } from '@/api/transfers'
 import type { DepartureTransfers } from '@/api/transfers'
 import { isCanceledStatus } from '@/api/flights'
-import { useRefreshTripDetail } from '@/api/trips'
 import { messages } from '@/constants/messages'
 import { dayDiff, formatLocal } from '@/lib/time'
 import { useTransferSettings } from '@/stores/transferSettings'
@@ -168,12 +167,6 @@ export function DepartureTab({
   const airportBufferMin = useTransferSettings((s) => s.airportBufferMin)
   const setAirportBufferMin = useTransferSettings((s) => s.setAirportBufferMin)
   const transfers = useDepartureTransfers(tripId, airportBufferMin)
-  useRefreshTripDetail(
-    tripId,
-    transfers.data?.flightCheck.result === 'REFRESHED',
-    transfers.dataUpdatedAt,
-  )
-
   let body
   if (transfers.isError) {
     body = (
