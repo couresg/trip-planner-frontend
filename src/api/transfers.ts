@@ -61,13 +61,13 @@ export interface ArrivalOption extends TransferRoute {
   nextFirstDeparture: string | null
 }
 
-/** 교통편 계산 전 저장된 항공편 재조회 결과 (REFRESHED: 갱신함, FAILED: 저장된 값 사용, OUT_OF_WINDOW·MANUAL: 조회 안 함) */
+/** 교통편 계산 전 저장된 항공편 재조회 결과 (REFRESHED: 조회 성공, FAILED: 저장된 값 사용, BEFORE_WINDOW·AFTER_WINDOW·MANUAL: 조회 안 함) */
 export type FlightCheckResult =
-  'REFRESHED' | 'FAILED' | 'OUT_OF_WINDOW' | 'MANUAL'
+  'REFRESHED' | 'FAILED' | 'BEFORE_WINDOW' | 'AFTER_WINDOW' | 'MANUAL'
 
 export interface FlightCheck {
   result: FlightCheckResult
-  /** 저장된 항공편 값을 마지막으로 받은 시각 (공항 timezone 오프셋 ISO) */
+  /** 저장된 항공편 값을 공급자에서 받은 시각 (요청 시각이 아님, 공항 timezone 오프셋 ISO) */
   checkedAt: string
 }
 

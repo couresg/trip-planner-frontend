@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 import { ApiError, apiFetch } from './client'
 import { queryKeys } from './queryKeys'
@@ -154,4 +155,24 @@ export function useDeleteTrip(beforeCleanup?: () => unknown) {
       queryClient.removeQueries({ queryKey: queryKeys.trip(tripId) })
     },
   })
+}
+
+/**
+ * 교통편·일정 GET이 저장된 항공편을 재조회해 바꿨을 수 있으니 여행 상세(머리글 시각·status)를 다시 받는다.
+ * version(응답을 받은 시각)이 바뀔 때마다 한 번. trip 키는 교통편·일정 키의 앞부분이라 exact로만 무효화한다
+ * (앞부분 일치로 무효화하면 교통편을 다시 받고 또 무효화하는 반복이 생긴다).
+ */
+export function useRefreshTripDetail(
+  tripId: string,
+  enabled: boolean,
+  version: number,
+) {
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    if (!enabled) return
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.trip(tripId),
+      exact: true,
+    })
+  }, [queryClient, tripId, enabled, version])
 }

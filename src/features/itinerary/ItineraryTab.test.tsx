@@ -5,7 +5,7 @@ import { delay, http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { addItineraryItem } from '@/api/itinerary'
 import type { Itinerary } from '@/api/itinerary'
-import { createTrip } from '@/api/trips'
+import { createTrip, getTrip } from '@/api/trips'
 import { server } from '@/mocks/server'
 import { useItineraryFailures } from '@/stores/itineraryFailures'
 import { useOwnerTokens } from '@/stores/ownerTokens'
@@ -72,6 +72,40 @@ const picker = () => within(screen.getByRole('region', { name: '추천 장소' }
 describe('ItineraryTab', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+  })
+
+  it('re-reads the trip after the itinerary loads so a cancellation found by the refresh shows', async () => {
+    const { tripId, ownerToken } = await createTrip({
+      outboundFlightNo: 'KE723',
+      returnFlightNo: 'KE724',
+      cityCode: 'OSA',
+      areaId: 11,
+      startDate: '2026-11-30',
+      endDate: '2026-12-02',
+      manualOverride: null,
+    })
+    useOwnerTokens.getState().setToken(tripId, ownerToken)
+    const saved = await getTrip(tripId, ownerToken)
+    let reads = 0
+    // 처음 받은 여행 상세는 Expected, 일정 GET이 재조회한 뒤에는 결항이다
+    server.use(
+      http.get('*/api/v1/trips/:tripId', () => {
+        reads += 1
+        return HttpResponse.json(
+          reads === 1
+            ? saved
+            : { ...saved, return: { ...saved.return, status: 'Canceled' } },
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    renderRoute(`/trips/${tripId}`)
+    await user.click(await screen.findByRole('tab', { name: '일정' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '결항 또는 결항 가능성',
+    )
+    expect(reads).toBeGreaterThanOrEqual(2)
   })
 
   it('renders every trip date, including empty days', async () => {

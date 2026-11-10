@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import { isCanceledStatus } from '@/api/flights'
+import { useRefreshTripDetail } from '@/api/trips'
 import {
   isOnDemandMode,
   onDemandFirst,
@@ -61,6 +62,12 @@ export function ArrivalTab({
 }) {
   const immigrationMin = useTransferSettings((s) => s.immigrationMin)
   const transfers = useArrivalTransfers(tripId, immigrationMin)
+  useRefreshTripDetail(
+    tripId,
+    !transfers.isPlaceholderData &&
+      transfers.data?.flightCheck.result === 'REFRESHED',
+    transfers.dataUpdatedAt,
+  )
 
   let body
   if (transfers.isError) {

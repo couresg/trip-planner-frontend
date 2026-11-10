@@ -35,14 +35,14 @@ export function FlightCheckNotice({
   tz: string
 }) {
   const failed = check.result === 'FAILED'
-  const detail =
-    check.result === 'FAILED'
-      ? m.failed
-      : check.result === 'OUT_OF_WINDOW'
-        ? m.outOfWindow
-        : check.result === 'MANUAL'
-          ? m.manual
-          : null
+  const details: Record<FlightCheck['result'], string | null> = {
+    REFRESHED: null,
+    FAILED: m.failed,
+    BEFORE_WINDOW: m.beforeWindow,
+    AFTER_WINDOW: m.afterWindow,
+    MANUAL: m.manual,
+  }
+  const detail = details[check.result]
   return (
     <div
       className={cn(

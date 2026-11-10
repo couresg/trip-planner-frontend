@@ -379,6 +379,30 @@ describe('DepartureTab', () => {
     )
   })
 
+  it('says the check period is over after departure, not that it will check later', async () => {
+    server.use(
+      http.get(DEPARTURE_PATH, () =>
+        HttpResponse.json({
+          ...noTransit,
+          flightCheck: {
+            result: 'AFTER_WINDOW',
+            checkedAt: '2026-12-03T06:50:00+09:00',
+          },
+        }),
+      ),
+    )
+    await openDepartureTab()
+
+    expect(
+      await panel().findByText(
+        /확인 기간이 지나 더 이상 지연을 다시 확인하지 않아요/,
+      ),
+    ).toBeInTheDocument()
+    expect(
+      panel().queryByText(/이 화면을 열 때마다 항공편 지연을/),
+    ).not.toBeInTheDocument()
+  })
+
   it('says the flight check failed and when it was last checked', async () => {
     server.use(
       http.get(DEPARTURE_PATH, () =>

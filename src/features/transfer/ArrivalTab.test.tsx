@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { ManualOverride } from '@/api/trips'
-import { createTrip } from '@/api/trips'
+import { createTrip, getTrip } from '@/api/trips'
 import { server } from '@/mocks/server'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 import { renderRoute } from '@/test/renderRoute'
@@ -260,6 +260,33 @@ describe('ArrivalTab', () => {
     expect(
       screen.getByText('항공편 정보 마지막 확인 11월 5일 21:10'),
     ).toBeInTheDocument()
+  })
+
+  it('re-reads the trip header after a refreshed arrival so its times match the tab', async () => {
+    const tripId = await seedTrip('KE723', '2026-11-05')
+    const token = useOwnerTokens.getState().tokens[tripId]
+    const saved = await getTrip(tripId, token)
+    let reads = 0
+    server.use(
+      http.get('*/api/v1/trips/:tripId', () => {
+        reads += 1
+        return HttpResponse.json(
+          reads === 1
+            ? saved
+            : {
+                ...saved,
+                outbound: {
+                  ...saved.outbound,
+                  arrivalAt: '2026-11-05T13:58:00+09:00',
+                },
+              },
+        )
+      }),
+    )
+    renderRoute(`/trips/${tripId}`)
+
+    await waitFor(() => expect(reads).toBe(2))
+    await waitFor(() => expect(document.body).toHaveTextContent('13:58'))
   })
 
   it('says a manual flight is not re-checked and shows no delay', async () => {
