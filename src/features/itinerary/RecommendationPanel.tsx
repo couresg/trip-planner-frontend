@@ -5,29 +5,26 @@ import type { Place, PlaceCategory } from '@/api/catalog'
 import { ApiError } from '@/api/client'
 import type { ItineraryDay } from '@/api/itinerary'
 import { isRateLimited } from '@/api/queryClient'
-import {
-  normalizeCategories,
-  PACES,
-  usePlaceRecommendations,
-} from '@/api/recommendations'
+import { PACES, usePlaceRecommendations } from '@/api/recommendations'
 import type { Pace, RecommendationRequest } from '@/api/recommendations'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
+import { cn } from '@/lib/utils'
+import { useOwnerTokens } from '@/stores/ownerTokens'
 
 const m = messages.itinerary
 const r = m.recommend
 
+/**
+ * 추천을 받기 전에 선택지에 보여줄 하루 장소 수. 백엔드 Pace.java(RELAXED 2 / NORMAL 3 / PACKED 5)와 같아야 한다.
+ * 결과의 개수 계산은 서버가 하고 응답의 placesPerDay가 기준이다.
+ */
 const PLACES_PER_DAY: Record<Pace, number> = {
   RELAXED: 2,
   NORMAL: 3,
   PACKED: 5,
 }
-
-const sameRequest = (a: RecommendationRequest, b: RecommendationRequest) =>
-  a.pace === b.pace &&
-  normalizeCategories(a.categories).join() ===
-    normalizeCategories(b.categories).join()
 
 function errorMessage(error: unknown) {
   if (isRateLimited(error)) return messages.common.rateLimited
@@ -51,7 +48,11 @@ export function RecommendationPanel({
   const [categories, setCategories] = useState<PlaceCategory[]>([])
   const [pace, setPace] = useState<Pace>('NORMAL')
   const [request, setRequest] = useState<RecommendationRequest | null>(null)
-  const result = usePlaceRecommendations(tripId, request)
+  const [submission, setSubmission] = useState(0)
+  const hasToken = useOwnerTokens((s) => !!s.tokens[tripId])
+  const result = usePlaceRecommendations(tripId, request, submission)
+  const targetDay = days.find((d) => d.date === date)
+  const targetLabel = targetDay ? m.dayNumber(targetDay.dayIndex) : date
 
   const toggle = (category: PlaceCategory) =>
     setCategories((current) =>
@@ -60,15 +61,21 @@ export function RecommendationPanel({
         : [...current, category],
     )
 
+  // 누를 때마다 새 키로 받는다 (예전 조건으로 돌아와도 그사이 일정에 넣은 장소가 빠진 결과)
   const submit = () => {
-    const next = { categories, pace }
-    // 같은 조건이면 캐시를 그대로 보여주지 않고 다시 받는다 (그사이 일정이 바뀌었을 수 있다)
-    if (request && sameRequest(request, next)) void result.refetch()
-    else setRequest(next)
+    setRequest({ categories, pace })
+    setSubmission((n) => n + 1)
   }
 
   let body = null
-  if (request && result.isError) {
+  if (request && !hasToken) {
+    // 토큰이 없으면 쿼리가 꺼져 있어 로딩만 계속 보이므로 이유를 알려준다
+    body = (
+      <p role="alert" className="text-sm text-red-600">
+        {r.noToken}
+      </p>
+    )
+  } else if (request && result.isError) {
     body = (
       <div
         role="alert"
@@ -125,7 +132,7 @@ export function RecommendationPanel({
               <Button
                 size="sm"
                 variant="outline"
-                aria-label={r.addLabel(rank, place.nameKo)}
+                aria-label={r.addLabel(rank, place.nameKo, targetLabel)}
                 onClick={() => onAdd(place, date)}
               >
                 <Plus aria-hidden />
@@ -168,24 +175,31 @@ export function RecommendationPanel({
           )
         })}
       </div>
-      <div
-        role="radiogroup"
-        aria-label={r.pace}
-        className="flex flex-wrap gap-2"
-      >
+      {/* 네이티브 라디오: 화살표 키 이동·탭 한 번 진입을 브라우저가 처리한다 */}
+      <fieldset className="flex flex-wrap gap-2">
+        <legend className="sr-only">{r.pace}</legend>
         {PACES.map((value) => (
-          <Button
+          <label
             key={value}
-            size="sm"
-            role="radio"
-            variant={pace === value ? 'default' : 'outline'}
-            aria-checked={pace === value}
-            onClick={() => setPace(value)}
+            className={cn(
+              'inline-flex cursor-pointer items-center rounded-md border px-3 py-1 text-sm font-medium has-focus-visible:ring-[3px] has-focus-visible:ring-ring/50',
+              pace === value
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'bg-background',
+            )}
           >
+            <input
+              type="radio"
+              name={`recommend-pace-${tripId}`}
+              value={value}
+              className="sr-only"
+              checked={pace === value}
+              onChange={() => setPace(value)}
+            />
             {r.paceOption[value]} ({r.perDay(PLACES_PER_DAY[value])})
-          </Button>
+          </label>
         ))}
-      </div>
+      </fieldset>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"

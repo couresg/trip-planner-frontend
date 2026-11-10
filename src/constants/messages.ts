@@ -148,7 +148,10 @@ export const messages = {
         '관심 카테고리와 장소 정보로 고른 추천이에요. 마음에 드는 장소를 날짜에 추가하세요.',
       results: '추천 결과',
       rank: (rank: number) => `${rank}위`,
-      addLabel: (rank: number, name: string) => `추천 ${rank}위 ${name} 추가`,
+      addLabel: (rank: number, name: string, day: string) =>
+        `추천 ${rank}위 ${name}을(를) ${day}에 추가`,
+      noToken:
+        '이 기기에 여행 소유 정보가 없어 추천을 받을 수 없어요. 여행을 만든 기기에서 열어 주세요.',
       empty: '추천할 장소가 없어요. 이 도시의 장소가 모두 일정에 있어요.',
       unavailable:
         '지금은 추천을 받을 수 없어요. 아래 장소 목록에서 직접 고를 수 있어요.',

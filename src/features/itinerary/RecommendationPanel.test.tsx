@@ -1,11 +1,14 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createQueryClient } from '@/api/queryClient'
 import { createTrip } from '@/api/trips'
 import { server } from '@/mocks/server'
 import { useOwnerTokens } from '@/stores/ownerTokens'
 import { renderRoute } from '@/test/renderRoute'
+import { RecommendationPanel } from './RecommendationPanel'
 
 const PATH = '*/api/v1/trips/:tripId/recommendations/places'
 const DAY1 = '1일차 · 11월 30일 (월)'
@@ -62,10 +65,7 @@ describe('RecommendationPanel', () => {
       panel().getByRole('button', { name: '관심 카테고리 관광' }),
     )
     await user.click(panel().getByRole('radio', { name: /알차게/ }))
-    expect(panel().getByRole('radio', { name: /알차게/ })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
+    expect(panel().getByRole('radio', { name: /알차게/ })).toBeChecked()
     await user.click(submitButton())
 
     expect(
@@ -120,7 +120,9 @@ describe('RecommendationPanel', () => {
     )
     await user.click(submitButton())
     await user.click(
-      await panel().findByRole('button', { name: '추천 1위 오사카성 추가' }),
+      await panel().findByRole('button', {
+        name: '추천 1위 오사카성을(를) 2일차에 추가',
+      }),
     )
 
     expect(await day(DAY2).findByText('오사카성')).toBeVisible()
@@ -191,7 +193,7 @@ describe('RecommendationPanel', () => {
     await user.click(within(alert).getByRole('button', { name: '다시 시도' }))
     expect(
       await panel().findByRole('button', {
-        name: '추천 1위 우메다 스카이빌딩 추가',
+        name: '추천 1위 우메다 스카이빌딩을(를) 1일차에 추가',
       }),
     ).toBeVisible()
     expect(panel().queryByRole('alert')).not.toBeInTheDocument()
@@ -204,7 +206,9 @@ describe('RecommendationPanel', () => {
     )
     await user.click(submitButton())
     await user.click(
-      await panel().findByRole('button', { name: '추천 1위 오사카성 추가' }),
+      await panel().findByRole('button', {
+        name: '추천 1위 오사카성을(를) 1일차에 추가',
+      }),
     )
     await day(DAY1).findByText('오사카성')
 
@@ -212,11 +216,94 @@ describe('RecommendationPanel', () => {
     await user.click(submitButton())
     await waitFor(() =>
       expect(
-        panel().queryByRole('button', { name: /오사카성 추가/ }),
+        panel().queryByRole('button', { name: /오사카성/ }),
       ).not.toBeInTheDocument(),
     )
     expect(
-      panel().getByRole('button', { name: '추천 1위 도톤보리 추가' }),
+      panel().getByRole('button', {
+        name: '추천 1위 도톤보리을(를) 1일차에 추가',
+      }),
     ).toBeVisible()
+  })
+
+  it('fetches again when returning to earlier conditions, so places added meanwhile do not come back', async () => {
+    let calls = 0
+    server.events.on('request:start', ({ request }) => {
+      if (request.url.includes('/recommendations/places')) calls += 1
+    })
+    const user = await openTab()
+    const sight = () =>
+      panel().getByRole('button', { name: '관심 카테고리 관광' })
+    const food = () =>
+      panel().getByRole('button', { name: '관심 카테고리 맛집' })
+
+    await user.click(sight())
+    await user.click(submitButton())
+    await user.click(
+      await panel().findByRole('button', {
+        name: '추천 1위 오사카성을(를) 1일차에 추가',
+      }),
+    )
+    await day(DAY1).findByText('오사카성')
+
+    await user.click(sight())
+    await user.click(food())
+    await waitFor(() => expect(submitButton()).toBeEnabled())
+    await user.click(submitButton())
+    await panel().findByRole('button', {
+      name: '추천 1위 도톤보리을(를) 1일차에 추가',
+    })
+
+    // SIGHT로 돌아와도 예전(오사카성 포함) 결과를 다시 쓰지 않는다
+    await user.click(food())
+    await user.click(sight())
+    await user.click(submitButton())
+    await panel().findByRole('button', {
+      name: '추천 1위 도톤보리을(를) 1일차에 추가',
+    })
+    expect(
+      panel().queryByRole('button', { name: /오사카성/ }),
+    ).not.toBeInTheDocument()
+    expect(calls).toBe(3)
+    server.events.removeAllListeners()
+  })
+
+  it('explains a missing owner token instead of loading forever', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <RecommendationPanel
+          tripId="no-token-trip"
+          days={[
+            {
+              date: '2026-11-30',
+              dayIndex: 1,
+              earliestStart: null,
+              latestEnd: null,
+              items: [],
+            },
+          ]}
+          date="2026-11-30"
+          onAdd={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(screen.getByRole('button', { name: '관심 카테고리 관광' }))
+    await user.click(screen.getByRole('button', { name: '추천 받기' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '이 기기에 여행 소유 정보가 없어 추천을 받을 수 없어요.',
+    )
+    expect(screen.queryByLabelText('불러오는 중...')).not.toBeInTheDocument()
+  })
+
+  it('uses native radio inputs for pace so arrow keys move the choice', async () => {
+    const user = await openTab()
+    const normal = panel().getByRole('radio', { name: /보통/ })
+    expect(normal).toBeChecked()
+    normal.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(panel().getByRole('radio', { name: /알차게/ })).toBeChecked()
+    expect(normal).not.toBeChecked()
   })
 })

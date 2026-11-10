@@ -51,8 +51,17 @@ export const queryKeys = {
     tripId: string,
     categories: PlaceCategory[],
     pace: Pace | null,
+    submission: number,
   ) =>
-    ['trips', 'detail', tripId, 'recommendations', categories, pace] as const,
+    [
+      'trips',
+      'detail',
+      tripId,
+      'recommendations',
+      categories,
+      pace,
+      submission,
+    ] as const,
   places: (cityCode: string, filters: PlaceFilters) =>
     [
       'cities',

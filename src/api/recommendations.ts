@@ -48,10 +48,15 @@ export const getPlaceRecommendations = (
   )
 }
 
-/** request가 null이면 부르지 않는다 ("추천 받기"를 누르기 전) */
+/**
+ * request가 null이면 부르지 않는다 ("추천 받기"를 누르기 전).
+ * submission은 "추천 받기"를 누른 횟수다. 키에 넣어 누를 때마다 새로 받는다: 같은 조건으로 돌아와도
+ * 그사이 일정에 넣은 장소가 들어 있는 예전 결과를 보여주지 않기 위해서다 (PRD F4-1).
+ */
 export function usePlaceRecommendations(
   tripId: string,
   request: RecommendationRequest | null,
+  submission: number,
 ) {
   const token = useOwnerTokens((s) => s.tokens[tripId])
   return useQuery({
@@ -59,12 +64,14 @@ export function usePlaceRecommendations(
       tripId,
       normalizeCategories(request?.categories ?? []),
       request?.pace ?? null,
+      submission,
     ),
     queryFn: () =>
       getPlaceRecommendations(tripId, request as RecommendationRequest, token),
     enabled: !!token && !!request,
-    // 일정에 넣을 때마다 목록이 바뀌면 고르기 어렵다. 다시 받기는 버튼으로만 한다
+    // 일정에 넣을 때마다 목록이 바뀌면 고르기 어렵다. 다시 받기는 버튼(새 submission)으로만 한다
     staleTime: Infinity,
+    gcTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: false,
