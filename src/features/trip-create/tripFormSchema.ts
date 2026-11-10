@@ -84,6 +84,26 @@ export const makeTripFormSchema = (timezone = 'UTC') =>
       path: ['returnAt'],
       message: v.manualAt,
     })
+    // 백엔드와 동일: 수동 가는 편 도착일은 시작일 또는 그다음 날(자정 넘김 도착), 오는 편 출발일은 종료일
+    .refine(
+      (f) => {
+        if (!f.outboundManual || !f.outboundAt || !f.startDate) return true
+        const days = differenceInCalendarDays(
+          parseISO(f.outboundAt.slice(0, 10)),
+          parseISO(f.startDate),
+        )
+        return days === 0 || days === 1
+      },
+      { ...always, path: ['outboundAt'], message: v.outboundAtDate },
+    )
+    .refine(
+      (f) =>
+        !f.returnManual ||
+        !f.returnAt ||
+        !f.endDate ||
+        f.returnAt.slice(0, 10) === f.endDate,
+      { ...always, path: ['returnAt'], message: v.returnAtDate },
+    )
     .refine(
       (f) =>
         !f.outboundManual ||

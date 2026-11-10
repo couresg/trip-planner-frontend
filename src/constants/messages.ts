@@ -42,6 +42,8 @@ export const messages = {
       tooLong: '여행 기간은 최대 30일입니다.',
       airport: '공항을 선택하세요.',
       manualAt: '시각을 입력하세요.',
+      outboundAtDate: '가는 편 도착일은 시작일 또는 그다음 날이어야 합니다.',
+      returnAtDate: '오는 편 출발일은 종료일과 같아야 합니다.',
       returnBeforeOutbound:
         '오는 편 출발 시각은 가는 편 도착 시각보다 늦어야 합니다.',
     },

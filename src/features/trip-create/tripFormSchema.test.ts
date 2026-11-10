@@ -90,6 +90,31 @@ describe('tripFormSchema manual time order', () => {
     ])
   })
 
+  // 백엔드와 동일: 가는 편 도착일은 시작일 또는 그다음 날, 오는 편 출발일은 종료일
+  it('rejects an outbound arrival outside the start date and the day after', () => {
+    const errors = (outboundAt: string) => {
+      const result = parseManual(outboundAt, '2026-11-05T23:59')
+      return result.success
+        ? []
+        : result.error.issues
+            .filter((i) => i.path[0] === 'outboundAt')
+            .map((i) => i.message)
+    }
+    const message = '가는 편 도착일은 시작일 또는 그다음 날이어야 합니다.'
+    expect(errors('2026-11-04T23:59')).toEqual([message])
+    expect(errors('2026-11-07T00:00')).toEqual([message])
+    expect(errors('2026-11-05T00:00')).toEqual([])
+    expect(errors('2026-11-06T23:59')).toEqual([])
+  })
+
+  it('rejects a return departure that is not on the end date', () => {
+    const message = '오는 편 출발일은 종료일과 같아야 합니다.'
+    expect(returnAtErrors('2026-11-05T09:00', '2026-11-06T00:00')).toEqual([
+      message,
+    ])
+    expect(returnAtErrors('2026-11-05T09:00', '2026-11-05T23:59')).toEqual([])
+  })
+
   it('skips the order check when only one direction is manual', () => {
     const result = makeTripFormSchema('Asia/Tokyo').safeParse({
       ...tripFormDefaults,
