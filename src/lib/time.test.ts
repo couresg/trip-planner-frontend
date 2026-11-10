@@ -7,6 +7,13 @@ import {
   zonedInputToIso,
 } from './time'
 
+describe('test timezone', () => {
+  // vite.config.ts의 test.env.TZ. 이 고정이 풀리면 브라우저 시간대 실수를 테스트가 잡지 못한다
+  it('runs in America/Los_Angeles, not the developer machine zone', () => {
+    expect(new Date('2026-01-15T12:00:00Z').getTimezoneOffset()).toBe(480)
+  })
+})
+
 describe('formatLocal', () => {
   it('shows a UTC instant in Asia/Tokyo regardless of process TZ', () => {
     expect(formatLocal('2026-03-10T14:30:00Z', 'Asia/Tokyo')).toBe('23:30')
