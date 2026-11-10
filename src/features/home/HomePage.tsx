@@ -8,7 +8,8 @@ export function HomePage() {
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 p-4">
       <h1 className="text-xl font-bold">{messages.app.title}</h1>
-      <HealthStatus />
+      {/* 개발 확인용. 빌드 결과에는 보이지 않는다 */}
+      {import.meta.env.DEV && <HealthStatus />}
       <Button asChild>
         <Link to="/trips/new">{messages.home.newTrip}</Link>
       </Button>
