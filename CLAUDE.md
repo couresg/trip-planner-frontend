@@ -52,7 +52,7 @@ src/
 ├── components/       # 공용 컴포넌트
 ├── hooks/
 ├── stores/           # zustand
-├── lib/              # time.ts(현지 시각 포맷), format.ts(통화), storage.ts(localStorage try/catch)
+├── lib/              # time.ts(현지 시각 포맷), storage.ts(localStorage try/catch)
 └── mocks/            # MSW 핸들러
 ```
 

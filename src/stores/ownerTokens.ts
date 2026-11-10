@@ -7,7 +7,6 @@ type Tokens = Record<string, string>
 
 interface OwnerTokenState {
   tokens: Tokens
-  getToken: (tripId: string) => string | undefined
   setToken: (tripId: string, token: string) => void
   removeToken: (tripId: string) => void
   removeTokens: (tripIds: string[]) => void
@@ -30,7 +29,6 @@ export const useOwnerTokens = create<OwnerTokenState>((set, get) => {
   }
   return {
     tokens: readStored() ?? {},
-    getToken: (tripId) => get().tokens[tripId],
     setToken: (tripId, token) => save({ ...latest(), [tripId]: token }),
     removeToken: (tripId) => removeTokens([tripId]),
     removeTokens,
