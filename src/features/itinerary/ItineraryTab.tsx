@@ -76,6 +76,7 @@ export function ItineraryTab({
       {itinerary.data && (
         <>
           <PlacePicker
+            tripId={tripId}
             cityCode={cityCode}
             days={itinerary.data.days}
             onAdd={add}

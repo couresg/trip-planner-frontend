@@ -9,15 +9,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
 import { fieldClass } from '@/features/trip-create/fieldClass'
 import { dayLabel } from './dayLabel'
+import { RecommendationPanel } from './RecommendationPanel'
 
 const m = messages.itinerary
 const p = m.picker
 
 export function PlacePicker({
+  tripId,
   cityCode,
   days,
   onAdd,
 }: {
+  tripId: string
   cityCode: string
   days: ItineraryDay[]
   onAdd: (place: Place, date: string) => void
@@ -121,6 +124,12 @@ export function PlacePicker({
           ))}
         </select>
       </label>
+      <RecommendationPanel
+        tripId={tripId}
+        days={days}
+        date={date}
+        onAdd={onAdd}
+      />
       <div
         role="group"
         aria-label={p.category}
