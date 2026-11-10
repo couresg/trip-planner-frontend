@@ -42,6 +42,8 @@ npm run dev     # http://localhost:5173
 |---|---|
 | `VITE_GOOGLE_MAPS_BROWSER_KEY` | 일정 탭 지도용 Maps JavaScript API 키. 반드시 HTTP Referrer 제한을 건 키만 사용 |
 
+| `VITE_USE_MSW` | `true`면 개발 서버(`npm run dev`)에서 백엔드 대신 MSW 목업 응답을 쓴다. 빌드 결과에서는 무시된다. 먼저 `npx msw init public`으로 `public/mockServiceWorker.js`를 만들어야 한다 |
+
 키가 없으면 지도 대신 안내 문구가 표시된다.
 `VITE_` 변수는 번들에 노출된다. 다른 비밀값은 절대 `VITE_` 접두어로 넣지 않는다.
 
