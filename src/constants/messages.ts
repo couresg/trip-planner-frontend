@@ -131,6 +131,29 @@ export const messages = {
       empty: '이 카테고리에는 장소가 없습니다.',
       error: '장소 목록을 불러오지 못했습니다.',
     },
+    recommend: {
+      title: '추천 받기',
+      categories: '관심 카테고리',
+      categoryLabel: (label: string) => `관심 카테고리 ${label}`,
+      pace: '일정 밀도',
+      paceOption: {
+        RELAXED: '여유롭게',
+        NORMAL: '보통',
+        PACKED: '알차게',
+      },
+      perDay: (count: number) => `하루 ${count}곳`,
+      submit: '추천 받기',
+      needCategory: '관심 카테고리를 하나 이상 고르세요.',
+      basis:
+        '관심 카테고리와 장소 정보로 고른 추천이에요. 마음에 드는 장소를 날짜에 추가하세요.',
+      results: '추천 결과',
+      rank: (rank: number) => `${rank}위`,
+      addLabel: (rank: number, name: string) => `추천 ${rank}위 ${name} 추가`,
+      empty: '추천할 장소가 없어요. 이 도시의 장소가 모두 일정에 있어요.',
+      unavailable:
+        '지금은 추천을 받을 수 없어요. 아래 장소 목록에서 직접 고를 수 있어요.',
+      error: '추천을 불러오지 못했어요. 아래 장소 목록은 그대로 쓸 수 있어요.',
+    },
     category: {
       SIGHT: '관광',
       FOOD: '맛집',

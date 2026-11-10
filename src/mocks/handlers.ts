@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import { PLACE_CATEGORIES } from '@/api/catalog'
 import type { Area, City, DayOfWeek, Place } from '@/api/catalog'
 import {
   effectiveTime,
@@ -11,6 +12,7 @@ import type {
   ItineraryPlace,
   ItineraryWarning,
 } from '@/api/itinerary'
+import type { Pace, PlaceRecommendations } from '@/api/recommendations'
 import { isOnDemandMode } from '@/api/transfers'
 import type {
   ArrivalDeparture,
@@ -911,6 +913,68 @@ const itineraryHandlers = [
         items.filter((i) => i.itemId !== Number(params.itemId)),
       )
       return new HttpResponse(null, { status: 204 })
+    },
+  ),
+  // 백엔드 MockPlaceRecommender와 같은 규칙: 관심 카테고리를 번갈아 고르고 남는 자리는 관심 밖 장소를 id 순으로 채운다
+  http.get(
+    '*/api/v1/trips/:tripId/recommendations/places',
+    ({ request, params }) => {
+      const search = new URL(request.url).searchParams
+      const categories = (search.get('categories') ?? '')
+        .split(',')
+        .filter(Boolean)
+      const perDay = (
+        { RELAXED: 2, NORMAL: 3, PACKED: 5 } as Record<string, number>
+      )[search.get('pace') ?? '']
+      if (
+        categories.length === 0 ||
+        !categories.every((c) =>
+          (PLACE_CATEGORIES as readonly string[]).includes(c),
+        ) ||
+        !perDay
+      )
+        return problem(
+          400,
+          'Bad Request',
+          'Invalid recommendation request',
+          'VALIDATION_FAILED',
+        )
+      const tripId = String(params.tripId)
+      const trip = findOwnedTrip(request, tripId)
+      if (trip instanceof Response) return trip
+      const scheduled = new Set(
+        (itineraryItems.get(tripId) ?? []).map((i) => i.place.id),
+      )
+      const candidates = [...osakaPlaces]
+        .filter((p) => !scheduled.has(p.id))
+        .sort((a, b) => a.id - b.id)
+      const dayCount = tripDates(trip).length
+      const count = Math.min(dayCount * perDay, candidates.length)
+      const queues = PLACE_CATEGORIES.filter((c) => categories.includes(c)).map(
+        (c) => candidates.filter((p) => p.category === c),
+      )
+      const picked: { place: Place; reason: string }[] = []
+      while (picked.length < count && queues.some((q) => q.length > 0))
+        for (const queue of queues) {
+          const place = queue.shift()
+          if (place && picked.length < count)
+            picked.push({ place, reason: `관심사와 맞아요 · ${place.summary}` })
+        }
+      for (const place of candidates.filter(
+        (p) => !categories.includes(p.category),
+      ))
+        if (picked.length < count)
+          picked.push({
+            place,
+            reason: `일정을 채울 후보예요 · ${place.summary}`,
+          })
+      return HttpResponse.json({
+        pace: search.get('pace') as Pace,
+        placesPerDay: perDay,
+        dayCount,
+        candidateCount: candidates.length,
+        recommendations: picked.map((p, i) => ({ rank: i + 1, ...p })),
+      } satisfies PlaceRecommendations)
     },
   ),
 ]

@@ -1,4 +1,5 @@
-import type { PlaceFilters } from './catalog'
+import type { PlaceCategory, PlaceFilters } from './catalog'
+import type { Pace } from './recommendations'
 import type { AirportBufferMin, ImmigrationMin } from './transfers'
 
 export const queryKeys = {
@@ -45,6 +46,13 @@ export const queryKeys = {
       immigrationMin,
       airportBufferMin,
     ] as const,
+  // trip(tripId) 하위 키라 여행 삭제 시 함께 지워진다
+  placeRecommendations: (
+    tripId: string,
+    categories: PlaceCategory[],
+    pace: Pace | null,
+  ) =>
+    ['trips', 'detail', tripId, 'recommendations', categories, pace] as const,
   places: (cityCode: string, filters: PlaceFilters) =>
     [
       'cities',
