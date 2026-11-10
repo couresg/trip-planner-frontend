@@ -1,9 +1,16 @@
 import { TriangleAlert } from 'lucide-react'
-import { isOnDemandMode, onDemandFirst, useArrivalTransfers } from '@/api/transfers'
+import { isCanceledStatus } from '@/api/flights'
+import {
+  isOnDemandMode,
+  onDemandFirst,
+  useArrivalTransfers,
+} from '@/api/transfers'
 import type { ArrivalTransfers } from '@/api/transfers'
 import { messages } from '@/constants/messages'
 import { cn } from '@/lib/utils'
 import { useTransferSettings } from '@/stores/transferSettings'
+import { CanceledBanner } from './CanceledBanner'
+import { FlightChangeLine, FlightCheckNotice } from './FlightCheckNotice'
 import { ImmigrationSelector } from './ImmigrationSelector'
 import { LocalTime } from './LocalTime'
 import { Timeline } from './Timeline'
@@ -68,6 +75,11 @@ export function ArrivalTab({
     body = <TransfersSkeleton />
   } else {
     const data = transfers.data
+    // 재조회로 지연·변경이 반영되면 계산 기준(baseTime)이 예정 도착과 달라진다
+    const changedAt =
+      Date.parse(data.baseTime) === Date.parse(data.scheduledArrivalAt)
+        ? null
+        : data.baseTime
     body = (
       <div
         className={cn(
@@ -76,6 +88,17 @@ export function ArrivalTab({
         )}
         aria-busy={transfers.isPlaceholderData}
       >
+        {isCanceledStatus(data.flightStatus) && <CanceledBanner />}
+        {changedAt && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <FlightChangeLine
+              scheduledAt={data.scheduledArrivalAt}
+              changedAt={changedAt}
+              tz={data.timezone}
+            />
+          </div>
+        )}
+        <FlightCheckNotice check={data.flightCheck} tz={data.timezone} />
         {data.noTransitWarning && <NoTransitBanner data={data} />}
         <Timeline data={data} areaName={areaName} />
         {orderedOptions(data).map((option) => (

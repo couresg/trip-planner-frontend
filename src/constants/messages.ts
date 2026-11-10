@@ -236,6 +236,20 @@ export const messages = {
     /** +1 같은 날짜 배지의 스크린리더 문구 */
     dayOffset: (days: number) =>
       days === 1 ? '다음 날' : days > 0 ? `${days}일 후` : `${-days}일 전`,
+    flightCheck: {
+      /** 예정보다 늦어진 시각이 반영됐을 때. 뒤에 '예정 HH:mm → 변경 HH:mm'이 붙는다 */
+      delayed: '지연 반영됨:',
+      /** 예정보다 이른 시각이 반영됐을 때 */
+      changed: '시각 변경 반영됨:',
+      scheduled: '예정',
+      revised: '변경',
+      lastChecked: (at: string) => `항공편 정보 마지막 확인 ${at}`,
+      failed:
+        '항공편 정보를 지금 다시 확인하지 못해 마지막으로 확인한 시각으로 계산했어요.',
+      outOfWindow:
+        '출발 48시간 전부터 이 화면을 열 때마다 항공편 지연을 다시 확인해요.',
+      manual: '직접 입력한 항공편 시각이라 자동으로 다시 확인하지 않아요.',
+    },
     mode: {
       RAIL: '철도',
       SUBWAY: '지하철',
@@ -270,7 +284,6 @@ export const messages = {
     leaveBySuffix: '출발',
     canceled:
       '결항 또는 결항 가능성이 있는 항공편으로 표시되어 있어요. 아래 시각은 참고용이니 항공사에 확인해 주세요.',
-    delayedAt: '항공편이 지연으로 표시되어 있어요. 변경된 출발 시각',
     delayedDetail:
       '지연은 줄어들 수 있어서 아래 시각은 원래 출발 시각을 기준으로 안내해요. 항공사에 확인해 주세요.',
     flightDepartureOriginal: '항공편 원래 출발',
@@ -279,7 +292,7 @@ export const messages = {
     leaveByEstimate:
       '소요 시간은 추정치이고 교통 상황에 따라 더 걸릴 수 있어요.',
     notice:
-      '항공편 시각은 여행을 만들 때 저장한 값이에요. 연말연시 같은 특별 시간표 기간에는 실제 운행 시각이 다를 수 있어요. 출발 전에 항공사와 운영사에 다시 확인하세요.',
+      '항공편 시각은 출발 48시간 전부터 이 화면을 열 때 다시 확인해요. 연말연시 같은 특별 시간표 기간에는 실제 운행 시각이 다를 수 있어요. 출발 전에 항공사와 운영사에 다시 확인하세요.',
     firstTrainTooLate: '첫차로는 시간을 맞출 수 없어요',
     noTimeAfterLanding: '착륙 후 공항을 나갈 시간이 없어요',
     noTimeAfterLandingDetail:

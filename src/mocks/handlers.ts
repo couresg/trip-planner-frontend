@@ -18,6 +18,7 @@ import type {
   ArrivalTransfers,
   DepartureOption,
   DepartureTransfers,
+  FlightCheck,
   ReturnDeparture,
 } from '@/api/transfers'
 import type {
@@ -235,7 +236,36 @@ interface StoredTrip {
   ownerToken: string
   /** 여행 상세에는 지연 반영 시각만 있어 귀국일 계산용 원래 시각을 따로 둔다 */
   returnScheduledAt: string
+  /** 가는 편 예정 도착 (상세의 arrivalAt은 지연 반영 시각) */
+  outboundScheduledAt: string
+  /** 목업은 생성 때 항공편을 조회한 것으로 보고 이 시각을 마지막 확인 시각으로 쓴다 */
+  createdAt: string
   detail: TripDetail
+}
+
+interface MockFlightInfo {
+  scheduledAt: string
+  flightStatus: string
+  flightCheck: FlightCheck
+}
+
+/** 목업은 재조회하지 않는다. 조회한 편은 생성 때 확인한 것(REFRESHED)으로, 수동 입력 편은 MANUAL로 준다 */
+const flightInfo = (
+  trip: StoredTrip,
+  direction: 'outbound' | 'return',
+): MockFlightInfo => {
+  const flight = trip.detail[direction]
+  return {
+    scheduledAt:
+      direction === 'outbound'
+        ? trip.outboundScheduledAt
+        : trip.returnScheduledAt,
+    flightStatus: flight.status ?? 'Unknown',
+    flightCheck: {
+      result: flight.source === 'MANUAL' ? 'MANUAL' : 'REFRESHED',
+      checkedAt: trip.createdAt,
+    },
+  }
 }
 
 const trips = new Map<string, StoredTrip>()
@@ -411,6 +441,7 @@ const arrivalRoutes: SeedRoute[] = [
 const arrivalTransfers = (
   baseTime: string,
   immigrationMin: number,
+  flight: MockFlightInfo,
 ): ArrivalTransfers => {
   const base = Date.parse(baseTime)
   const windowEnd = base + 120 * MIN_MS
@@ -480,6 +511,9 @@ const arrivalTransfers = (
     noTransitWarning: transit.every(
       (o) => !o.departures.some((d) => d.status === 'AVAILABLE'),
     ),
+    scheduledArrivalAt: flight.scheduledAt,
+    flightStatus: flight.flightStatus,
+    flightCheck: flight.flightCheck,
     // sort는 안정 정렬이라 추천편이 없는 노선은 원래 순서를 유지한다
     options: [...options].sort(
       (a, b) => recommendedArrival(a) - recommendedArrival(b),
@@ -557,6 +591,7 @@ const departureTransfers = (
   effectiveAt: string,
   landingAt: string,
   airportBufferMin: number,
+  returnFlight: MockFlightInfo,
 ): DepartureTransfers => {
   // 착륙 전에 숙소에서 출발해야 하는 편과 택시는 탈 수 없다
   const landing = Date.parse(landingAt)
@@ -649,6 +684,9 @@ const departureTransfers = (
     noTimeAfterLanding:
       leaves.length === 0 && options.every((o) => o.leaveByAt === null),
     latestLeaveAt: leaves.length > 0 ? toJstIso(Math.max(...leaves)) : null,
+    scheduledDepartureAt: toJstIso(scheduled),
+    flightStatus: returnFlight.flightStatus,
+    flightCheck: returnFlight.flightCheck,
     options: [...options].sort(
       (a, b) =>
         rank(a) - rank(b) ||
@@ -783,7 +821,11 @@ const itineraryHandlers = [
     const trip = findOwnedTrip(request, tripId)
     if (trip instanceof Response) return trip
     const earliest = earliestStartOf(
-      arrivalTransfers(trip.detail.outbound.arrivalAt, immigrationMin),
+      arrivalTransfers(
+        trip.detail.outbound.arrivalAt,
+        immigrationMin,
+        flightInfo(trip, 'outbound'),
+      ),
     )
     const latest = latestEndOf(
       departureTransfers(
@@ -791,6 +833,7 @@ const itineraryHandlers = [
         trip.detail.return.departureAt,
         trip.detail.outbound.arrivalAt,
         airportBufferMin,
+        flightInfo(trip, 'return'),
       ),
     )
     const stored = itineraryItems.get(tripId) ?? []
@@ -964,6 +1007,8 @@ const tripHandlers = [
     trips.set(tripId, {
       ownerToken,
       returnScheduledAt: ret.scheduled,
+      outboundScheduledAt: outbound.scheduled,
+      createdAt: toJstIso(Date.now()),
       detail: {
         tripId,
         city: {
@@ -1033,7 +1078,11 @@ const tripHandlers = [
       const trip = findOwnedTrip(request, String(params.tripId))
       if (trip instanceof Response) return trip
       return HttpResponse.json(
-        arrivalTransfers(trip.detail.outbound.arrivalAt, immigrationMin),
+        arrivalTransfers(
+          trip.detail.outbound.arrivalAt,
+          immigrationMin,
+          flightInfo(trip, 'outbound'),
+        ),
       )
     },
   ),
@@ -1058,6 +1107,7 @@ const tripHandlers = [
           trip.detail.return.departureAt,
           trip.detail.outbound.arrivalAt,
           airportBufferMin,
+          flightInfo(trip, 'return'),
         ),
       )
     },

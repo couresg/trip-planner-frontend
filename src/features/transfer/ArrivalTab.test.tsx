@@ -26,6 +26,10 @@ async function seedTrip(
   return tripId
 }
 
+/** 시각이 <time>으로 나뉜 문장 전체를 찾는다 */
+const paragraph = (pattern: RegExp) => (_: string, el: Element | null) =>
+  el?.tagName === 'P' && pattern.test(el.textContent ?? '')
+
 const card = (name: string) => screen.getByRole('article', { name })
 
 const chips = (name: string) =>
@@ -210,6 +214,68 @@ describe('ArrivalTab', () => {
     )
   })
 
+  it('shows the applied delay with the scheduled time and the last check time', async () => {
+    // KE723 예정 13:45, 변경 13:52
+    const tripId = await seedTrip('KE723', '2026-11-05')
+    renderRoute(`/trips/${tripId}`)
+
+    expect(
+      await screen.findByText(
+        paragraph(/지연 반영됨: 예정 13:45 → 변경 13:52/),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/^항공편 정보 마지막 확인 /)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows a delay past midnight with +1 and warns when the refreshed flight is canceled', async () => {
+    const tripId = await seedTrip('KE723', '2026-11-05')
+    server.use(
+      http.get('*/api/v1/trips/:tripId/transfers/arrival', () =>
+        HttpResponse.json({
+          baseTime: '2026-11-06T00:40:00+09:00',
+          windowStart: '2026-11-06T00:40:00+09:00',
+          windowEnd: '2026-11-06T02:40:00+09:00',
+          readyAt: '2026-11-06T01:40:00+09:00',
+          timezone: 'Asia/Tokyo',
+          noTransitWarning: true,
+          scheduledArrivalAt: '2026-11-05T23:30:00+09:00',
+          flightStatus: 'Canceled',
+          flightCheck: {
+            result: 'REFRESHED',
+            checkedAt: '2026-11-05T21:10:00+09:00',
+          },
+          options: [],
+        }),
+      ),
+    )
+    renderRoute(`/trips/${tripId}`)
+
+    expect(
+      await screen.findByText(
+        paragraph(/지연 반영됨: 예정 23:30 → 변경 00:40\+1 다음 날/),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('결항 또는 결항 가능성')
+    expect(
+      screen.getByText('항공편 정보 마지막 확인 11월 5일 21:10'),
+    ).toBeInTheDocument()
+  })
+
+  it('says a manual flight is not re-checked and shows no delay', async () => {
+    const tripId = await seedTrip('KE723', '2026-11-05', {
+      outboundArrivalAt: '2026-11-05T14:00:00+09:00',
+      outboundArrivalAirport: 'KIX',
+    })
+    renderRoute(`/trips/${tripId}`)
+
+    expect(
+      await screen.findByText(/직접 입력한 항공편 시각이라/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/지연 반영됨/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/마지막 확인/)).not.toBeInTheDocument()
+  })
+
   it('says transit data is missing, not that service ended, when only taxi comes back', async () => {
     const tripId = await seedTrip('KE723', '2026-11-05')
     server.use(
@@ -221,6 +287,12 @@ describe('ArrivalTab', () => {
           readyAt: '2026-11-05T15:00:00+09:00',
           timezone: 'Asia/Tokyo',
           noTransitWarning: true,
+          scheduledArrivalAt: '2026-11-05T14:00:00+09:00',
+          flightStatus: 'Expected',
+          flightCheck: {
+            result: 'REFRESHED',
+            checkedAt: '2026-11-05T09:00:00+09:00',
+          },
           options: [
             {
               routeId: 900,

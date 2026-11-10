@@ -92,6 +92,9 @@ const noTransit: DepartureTransfers = {
   firstTrainTooLate: true,
   noTimeAfterLanding: false,
   latestLeaveAt: null,
+  scheduledDepartureAt: '2026-12-03T07:00:00+09:00',
+  flightStatus: 'Expected',
+  flightCheck: { result: 'REFRESHED', checkedAt: '2026-12-02T09:00:00+09:00' },
   options: [],
 }
 
@@ -349,7 +352,7 @@ describe('DepartureTab', () => {
 
     // 원래 15:00, 지연 16:30. 지연은 줄어들 수 있으므로 15:00 기준 (마감 13:00)
     const banner = await screen.findByRole('status')
-    expect(banner).toHaveTextContent('변경된 출발 시각 16:30')
+    expect(banner).toHaveTextContent('지연 반영됨: 예정 15:00 → 변경 16:30')
     expect(banner).toHaveTextContent('지연은 줄어들 수 있어서')
     expect(banner).toHaveTextContent('원래 출발 시각을 기준으로')
     expect(banner).toHaveTextContent('항공사에 확인해 주세요')
@@ -363,6 +366,41 @@ describe('DepartureTab', () => {
     ])
   })
 
+  it('warns about a cancellation found by the refresh even when the saved trip says Expected', async () => {
+    server.use(
+      http.get(DEPARTURE_PATH, () =>
+        HttpResponse.json({ ...noTransit, flightStatus: 'Canceled' }),
+      ),
+    )
+    await openDepartureTab()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '결항 또는 결항 가능성',
+    )
+  })
+
+  it('says the flight check failed and when it was last checked', async () => {
+    server.use(
+      http.get(DEPARTURE_PATH, () =>
+        HttpResponse.json({
+          ...noTransit,
+          flightCheck: {
+            result: 'FAILED',
+            checkedAt: '2026-12-02T09:30:00+09:00',
+          },
+        }),
+      ),
+    )
+    await openDepartureTab()
+
+    expect(
+      await panel().findByText(/다시 확인하지 못해 마지막으로 확인한 시각으로/),
+    ).toBeInTheDocument()
+    expect(
+      panel().getByText('항공편 정보 마지막 확인 12월 2일 09:30'),
+    ).toBeInTheDocument()
+  })
+
   it('does not show the canceled warning for a flight that is not canceled', async () => {
     await openDepartureTab()
     await screen.findByRole('article', { name: '난카이 라피트' })
@@ -371,7 +409,7 @@ describe('DepartureTab', () => {
 
   it('always shows the saved-flight-time and special-timetable notice, even on error', async () => {
     const NOTICE =
-      /여행을 만들 때 저장한 값이에요.*연말연시 같은 특별 시간표.*다시 확인하세요/
+      /출발 48시간 전부터 이 화면을 열 때 다시 확인해요.*연말연시 같은 특별 시간표.*다시 확인하세요/
     await openDepartureTab()
     expect(panel().getByText(NOTICE)).toBeInTheDocument()
     await screen.findByRole('article', { name: '난카이 라피트' })

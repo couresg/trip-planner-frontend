@@ -12,6 +12,7 @@ import { messages } from '@/constants/messages'
 import { dayDiff, formatLocal } from '@/lib/time'
 import { useTransferSettings } from '@/stores/transferSettings'
 import { CanceledBanner } from './CanceledBanner'
+import { FlightChangeLine, FlightCheckNotice } from './FlightCheckNotice'
 import { DepartureTransferCard } from './DepartureTransferCard'
 import { LocalTime } from './LocalTime'
 import { MinuteSelector } from './MinuteSelector'
@@ -74,6 +75,13 @@ function DepartureContent({ data }: { data: DepartureTransfers }) {
   // 일부 노선만 범위 밖이면 카드에서 안내한다. 강조 문구가 막차를 가리킬 때만 위에서 알린다
   const headlineIsLastTrain =
     latest.length > 0 && latest.every((l) => l.departure.outsideWindow)
+  // 늦어진 변경은 revisedDepartureAt, 앞당겨진 변경은 계산 기준(flightDepartureAt)에 들어 있다
+  const changedAt =
+    data.revisedDepartureAt ??
+    (Date.parse(data.flightDepartureAt) ===
+    Date.parse(data.scheduledDepartureAt)
+      ? null
+      : data.flightDepartureAt)
   const options =
     data.firstTrainTooLate && !noTime
       ? onDemandFirst(data.options)
@@ -93,19 +101,17 @@ function DepartureContent({ data }: { data: DepartureTransfers }) {
 
   return (
     <>
-      {data.revisedDepartureAt && (
+      {changedAt && (
         <WarningBanner>
-          <p className="font-semibold">
-            {m.delayedAt}{' '}
-            <LocalTime
-              iso={data.revisedDepartureAt}
-              base={data.flightDepartureAt}
-              tz={data.timezone}
-            />
-          </p>
-          <p>{m.delayedDetail}</p>
+          <FlightChangeLine
+            scheduledAt={data.scheduledDepartureAt}
+            changedAt={changedAt}
+            tz={data.timezone}
+          />
+          {data.revisedDepartureAt && <p>{m.delayedDetail}</p>}
         </WarningBanner>
       )}
+      <FlightCheckNotice check={data.flightCheck} tz={data.timezone} />
       {noTime && (
         <WarningBanner>
           <p className="font-semibold">{m.noTimeAfterLanding}</p>
@@ -183,7 +189,10 @@ export function DepartureTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {isCanceledStatus(returnStatus) && <CanceledBanner />}
+      {/* 재조회한 귀국일 응답의 status가 여행 상세(생성 시점·이전 조회)보다 새롭다 */}
+      {isCanceledStatus(transfers.data?.flightStatus ?? returnStatus) && (
+        <CanceledBanner />
+      )}
       <MinuteSelector
         name="airportBufferMin"
         legend={m.airportBuffer}

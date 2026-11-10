@@ -61,6 +61,16 @@ export interface ArrivalOption extends TransferRoute {
   nextFirstDeparture: string | null
 }
 
+/** 교통편 계산 전 저장된 항공편 재조회 결과 (REFRESHED: 갱신함, FAILED: 저장된 값 사용, OUT_OF_WINDOW·MANUAL: 조회 안 함) */
+export type FlightCheckResult =
+  'REFRESHED' | 'FAILED' | 'OUT_OF_WINDOW' | 'MANUAL'
+
+export interface FlightCheck {
+  result: FlightCheckResult
+  /** 저장된 항공편 값을 마지막으로 받은 시각 (공항 timezone 오프셋 ISO) */
+  checkedAt: string
+}
+
 /** 시각은 모두 도착 공항 timezone 오프셋을 가진 ISO */
 export interface ArrivalTransfers {
   baseTime: string
@@ -69,6 +79,11 @@ export interface ArrivalTransfers {
   readyAt: string
   timezone: string
   noTransitWarning: boolean
+  /** 가는 편 예정 도착. baseTime과 다르면 지연(또는 변경)이 반영된 것이다 */
+  scheduledArrivalAt: string
+  /** 가는 편 status (공급자 값, 수동 입력은 Manual) */
+  flightStatus: string
+  flightCheck: FlightCheck
   options: ArrivalOption[]
 }
 
@@ -103,6 +118,11 @@ export interface DepartureTransfers {
   /** 착륙 후에 숙소에서 출발해 마감을 지킬 수단이 하나도 없다 */
   noTimeAfterLanding: boolean
   latestLeaveAt: string | null
+  /** 오는 편 예정 출발 */
+  scheduledDepartureAt: string
+  /** 오는 편 status (공급자 값, 수동 입력은 Manual) */
+  flightStatus: string
+  flightCheck: FlightCheck
   options: DepartureOption[]
 }
 
