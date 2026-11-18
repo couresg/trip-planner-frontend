@@ -1,5 +1,5 @@
 import { CircleAlert, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { PLACE_CATEGORIES, usePlacesQuery } from '@/api/catalog'
 import type { Place, PlaceCategory } from '@/api/catalog'
 import type { ItineraryDay } from '@/api/itinerary'
@@ -7,8 +7,7 @@ import { isRateLimited, rateLimitedMessage } from '@/api/queryClient'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messages } from '@/constants/messages'
-import { fieldClass } from '@/features/trip-create/fieldClass'
-import { dayLabel } from './dayLabel'
+import { dayLabel, shortDateLabel } from './dayLabel'
 import { RecommendationPanel } from './RecommendationPanel'
 
 const m = messages.itinerary
@@ -26,6 +25,7 @@ export function PlacePicker({
   onAdd: (place: Place, date: string) => void
 }) {
   const [category, setCategory] = useState<PlaceCategory>()
+  const dateLabelId = useId()
   // 밤 비행기면 시작일에는 아직 도착 전이므로 숙소에 도착하는 날을 먼저 고른다
   const [date, setDate] = useState(
     () => days.find((d) => d.earliestStart)?.date ?? days[0].date,
@@ -112,20 +112,32 @@ export function PlacePicker({
   return (
     <section aria-label={p.title} className="flex flex-col gap-3">
       <h3 className="font-semibold">{p.title}</h3>
-      <label className="flex flex-col gap-1 text-sm">
-        {p.date}
-        <select
-          className={fieldClass}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+      <div className="flex flex-col gap-1 text-sm">
+        <span id={dateLabelId}>{p.date}</span>
+        {/* 한 번에 고를 수 있게 날짜를 버튼으로 모두 펼친다. 375px에서 3개씩 줄바꿈 */}
+        <div
+          role="group"
+          aria-labelledby={dateLabelId}
+          className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap"
         >
           {days.map((d) => (
-            <option key={d.date} value={d.date}>
-              {dayLabel(d)}
-            </option>
+            <Button
+              key={d.date}
+              size="sm"
+              variant={date === d.date ? 'default' : 'outline'}
+              aria-pressed={date === d.date}
+              aria-label={dayLabel(d)}
+              className="h-auto flex-col gap-0 py-1.5"
+              onClick={() => setDate(d.date)}
+            >
+              <span className="font-semibold">{m.dayNumber(d.dayIndex)}</span>
+              <span className="text-xs font-normal">
+                {shortDateLabel(d.date)}
+              </span>
+            </Button>
           ))}
-        </select>
-      </label>
+        </div>
+      </div>
       <RecommendationPanel
         tripId={tripId}
         days={days}

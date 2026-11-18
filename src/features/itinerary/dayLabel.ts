@@ -8,8 +8,19 @@ export function dayLabel({
   date,
   dayIndex,
 }: Pick<ItineraryDay, 'date' | 'dayIndex'>) {
+  const { month, day, weekday } = parts(date)
+  return `${m.dayNumber(dayIndex)} · ${month}월 ${day}일 (${weekday})`
+}
+
+/** 버튼처럼 좁은 곳에 쓰는 짧은 날짜. 예: 11/30 (월) */
+export function shortDateLabel(date: string) {
+  const { month, day, weekday } = parts(date)
+  return `${month}/${day} (${weekday})`
+}
+
+function parts(date: string) {
   const [year, month, day] = date.split('-').map(Number)
   const weekday =
     m.weekdays[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
-  return `${m.dayNumber(dayIndex)} · ${month}월 ${day}일 (${weekday})`
+  return { month, day, weekday }
 }

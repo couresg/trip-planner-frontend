@@ -161,9 +161,35 @@ describe('ItineraryTab', () => {
     expect(day(DAY1).getByText('숙소 도착 예상 00:30 이후')).toBeVisible()
   })
 
+  it('shows every trip date as a button and marks only the chosen one pressed', async () => {
+    const user = await openTab()
+    const dates = within(screen.getByRole('group', { name: '추가할 날짜' }))
+    expect(dates.getByRole('button', { name: DAY1 })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await user.click(dates.getByRole('button', { name: DAY2 }))
+
+    expect(dates.getByRole('button', { name: DAY2 })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(dates.getByRole('button', { name: DAY1 })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(dates.getByText('12/1 (화)')).toBeVisible()
+  })
+
   it('adds a place from the picker to the chosen date and persists it', async () => {
     const user = await openTab()
-    await user.selectOptions(screen.getByLabelText('추가할 날짜'), DAY2)
+    await user.click(
+      within(screen.getByRole('group', { name: '추가할 날짜' })).getByRole(
+        'button',
+        { name: DAY2 },
+      ),
+    )
     await user.click(
       await picker().findByRole('button', { name: '오사카성 추가' }),
     )

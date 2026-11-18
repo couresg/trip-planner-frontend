@@ -28,7 +28,7 @@ npm run test       # Vitest
 | 라우팅 | **React Router** | `/`, `/trips/new`, `/trips/:tripId` 정도의 단순 라우팅 |
 | 서버 상태 | **TanStack Query** | API 캐시, 로딩/에러 상태, 일정 변경 시 낙관적 업데이트 |
 | 클라이언트 상태 | **Zustand** | 입국 소요 시간 같은 UI 설정, 소유 토큰 등 가벼운 전역 상태 |
-| UI | **Tailwind CSS + shadcn/ui** | Button, Tabs, Skeleton을 사용. 날짜·선택 입력은 모바일 기본 UI를 쓰려고 네이티브 `<input type="date">`·`<select>`를 쓴다 |
+| UI | **Tailwind CSS + shadcn/ui** | Button, Tabs, Skeleton을 사용. 날짜·선택 입력은 모바일 기본 UI를 쓰려고 네이티브 `<input type="date">`·`<select>`를 쓴다. 단, 자주 바꾸는 짧은 선택지(장소 추가 날짜, 카테고리 필터)는 한 번에 누르도록 버튼 그룹(`aria-pressed`)으로 펼친다 |
 | 폼 | **react-hook-form + zod** | 편명 정규식·날짜 범위 검증을 스키마로 선언 |
 | 날짜·시간대 | **date-fns + date-fns-tz** | 공항 현지 시각 표시, `+1` 날짜 넘김 계산 |
 | 드래그 앤 드롭 | **dnd-kit** | 일정 순서 변경·날짜 간 이동, 모바일 터치 지원 |

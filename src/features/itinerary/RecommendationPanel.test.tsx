@@ -114,7 +114,12 @@ describe('RecommendationPanel', () => {
 
   it('adds a recommended place to the chosen date with the existing add flow', async () => {
     const user = await openTab()
-    await user.selectOptions(screen.getByLabelText('추가할 날짜'), DAY2)
+    await user.click(
+      within(screen.getByRole('group', { name: '추가할 날짜' })).getByRole(
+        'button',
+        { name: DAY2 },
+      ),
+    )
     await user.click(
       panel().getByRole('button', { name: '관심 카테고리 관광' }),
     )
